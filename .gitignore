@@ -1,0 +1,8 @@
+node_modules/
+backend/kds.db
+backend/kds.db-shm
+backend/kds.db-wal
+frontend/.next/
+frontend/.env.local
+.DS_Store
+*.log
