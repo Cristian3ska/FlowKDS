@@ -440,7 +440,7 @@ app.patch('/api/settings', (req, res) => {
 
 app.get('/api/logo', (req, res) => {
   try {
-    const row = db.prepare('SELECT value FROM settings WHERE key = "app_logo"').get();
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'app_logo'").get();
     if (!row || !row.value) {
       return res.status(404).send('No logo set');
     }

@@ -1,5 +1,5 @@
 {
-  "name": "kds-backend",
+  "name": "flow-kds-backend",
   "version": "1.0.0",
   "description": "Kitchen Display System - Backend",
   "main": "server.js",
