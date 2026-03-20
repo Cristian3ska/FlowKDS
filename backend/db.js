@@ -108,13 +108,18 @@ const init = () => {
       items TEXT DEFAULT '[]'
     );
 
-    INSERT OR IGNORE INTO stations (id, name, label, color, time_alert_yellow, time_alert_red) VALUES
+    INSERT OR IGNORE INTO settings (key, value) VALUES
       ('sound_enabled', 'true'),
       ('app_name', 'Flow KDS'),
       ('sound_new_order', 'bell'),
       ('sound_delayed', 'alarm'),
       ('alert_yellow_default', '300'),
       ('alert_red_default', '600');
+
+    INSERT OR IGNORE INTO stations (id, name, label, color, time_alert_yellow, time_alert_red) VALUES
+      ('food', 'Cocina', 'Comida', '#f59e0b', 300, 600),
+      ('bar_hot', 'Barra Caliente', 'Caliente', '#ef4444', 300, 600),
+      ('bar_cold', 'Barra Fría', 'Frío', '#06b6d4', 300, 600);
   `);
 
   try { db.exec("INSERT OR IGNORE INTO users (id, username, password, role) VALUES ('1', 'root', 'root', 'root')"); } catch (e) {}
