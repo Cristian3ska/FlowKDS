@@ -1199,11 +1199,13 @@ h3 { font-size: 1rem; font-weight: 600; }
 }
 
 @media (max-width: 640px) {
-  .flex-center-mobile {
-    justify-content: center !important;
-    flex-direction: column !important;
+  .grid-mobile {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 0.75rem !important;
+    width: 100% !important;
   }
-  .flex-center-mobile .btn {
+  .width-100-mobile {
     width: 100% !important;
   }
 }

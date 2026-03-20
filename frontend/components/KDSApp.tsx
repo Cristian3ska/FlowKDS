@@ -951,7 +951,7 @@ export default function KDSApp() {
                 </div>
 
                 <div 
-                  className="flex-center-mobile" 
+                  className="grid-mobile" 
                   style={{ 
                     padding: '1.25rem 2rem', 
                     borderTop: '1px solid var(--border)', 
@@ -963,7 +963,7 @@ export default function KDSApp() {
                   }}
                 >
                   <button 
-                    className="btn btn--ghost btn--sm show-on-mobile" 
+                    className="btn btn--ghost btn--sm show-on-mobile width-100-mobile" 
                     style={{ color: 'var(--red)', border: '1px solid rgba(239,68,68,0.2)' }}
                     onClick={() => {
                       setCurrentUser(null);
@@ -973,26 +973,23 @@ export default function KDSApp() {
                   >
                     <LogOut size={14} /> Cerrar Sesión
                   </button>
-                  <div className="hide-on-mobile" /> {/* Spacer for desktop to keep buttons right-aligned */}
-                  <div 
-                    className="flex-center-mobile" 
-                    style={{ display: 'flex', gap: '0.75rem', flex: 1, justifyContent: 'flex-end' }}
+                  
+                  <div className="hide-on-mobile" style={{ flex: 1 }} />
+                  
+                  <button 
+                    className="btn btn--ghost width-100-mobile" 
+                    style={{ minWidth: '100px' }} 
+                    onClick={() => setShowSettingsModal(false)}
                   >
-                    <button 
-                      className="btn btn--ghost" 
-                      style={{ minWidth: '100px' }} 
-                      onClick={() => setShowSettingsModal(false)}
-                    >
-                      Cancelar
-                    </button>
-                    <button 
-                      className="btn btn--primary" 
-                      onClick={handleSaveSettings} 
-                      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center', minWidth: '100px' }}
-                    >
-                      <Save size={15} /> Confirmar
-                    </button>
-                  </div>
+                    Cancelar
+                  </button>
+                  <button 
+                    className="btn btn--primary width-100-mobile" 
+                    onClick={handleSaveSettings} 
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center', minWidth: '100px' }}
+                  >
+                    <Save size={15} /> Confirmar
+                  </button>
                 </div>
               </>
             ) : settingsTab === 'users' ? (
