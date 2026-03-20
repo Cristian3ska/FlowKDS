@@ -4,7 +4,7 @@ import {
   ChefHat, Wifi, WifiOff, Bell, BellOff, BarChart2,
   PanelRightClose, PanelRightOpen, ClipboardList, Flame,
   CheckSquare, Zap, Timer, MonitorPlay, ListOrdered, History,
-  Circle, X, UtensilsCrossed, Snowflake, CupSoda, Settings as SettingsIcon, ImagePlus, Save, Crop, ZoomIn, Users, LogOut, Trash2
+  Circle, X, UtensilsCrossed, Snowflake, CupSoda, Settings as SettingsIcon, ImagePlus, Save, Crop, ZoomIn, Users, LogOut, Trash2, AlertTriangle
 } from 'lucide-react';
 import { useRef } from 'react';
 import { Ticket, Station } from '@/types';
