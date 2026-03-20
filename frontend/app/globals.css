@@ -1190,3 +1190,21 @@ h3 { font-size: 1rem; font-weight: 600; }
   }
 }
 
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media (max-width: 640px) {
+  .flex-center-mobile {
+    justify-content: center !important;
+    flex-direction: column !important;
+  }
+  .flex-center-mobile .btn {
+    width: 100% !important;
+  }
+}
+

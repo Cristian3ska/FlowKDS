@@ -756,8 +756,8 @@ export default function KDSApp() {
             borderRadius: '16px', border: '1px solid var(--border-bright)', 
             display: 'flex', flexDirection: 'column', overflow: 'hidden'
           }}>
-            <div style={{ padding: '0 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', background: 'var(--bg-main)' }}>
-              <div style={{ display: 'flex', gap: '0.25rem' }}>
+            <div style={{ padding: '0 0.75rem 0 1.25rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', background: 'var(--bg-main)', overflow: 'hidden' }}>
+              <div className="no-scrollbar" style={{ display: 'flex', gap: '0.25rem', overflowX: 'auto', flex: 1 }}>
                 <button 
                   onClick={() => setSettingsTab('system')}
                   style={{ 
@@ -804,7 +804,11 @@ export default function KDSApp() {
                   Usuarios
                 </button>
               </div>
-              <button className="btn btn--ghost btn--icon btn--sm" style={{ marginBottom: '0.75rem' }} onClick={() => setShowSettingsModal(false)}>
+              <button 
+                className="btn btn--ghost btn--icon btn--sm" 
+                style={{ marginBottom: '0.75rem', marginLeft: '0.5rem', flexShrink: 0 }} 
+                onClick={() => setShowSettingsModal(false)}
+              >
                 <X size={18} />
               </button>
             </div>
@@ -946,7 +950,18 @@ export default function KDSApp() {
                   )}
                 </div>
 
-                <div style={{ padding: '1.25rem 2rem', borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div 
+                  className="flex-center-mobile" 
+                  style={{ 
+                    padding: '1.25rem 2rem', 
+                    borderTop: '1px solid var(--border)', 
+                    background: 'var(--bg-secondary)', 
+                    display: 'flex', 
+                    gap: '0.75rem', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center' 
+                  }}
+                >
                   <button 
                     className="btn btn--ghost btn--sm show-on-mobile" 
                     style={{ color: 'var(--red)', border: '1px solid rgba(239,68,68,0.2)' }}
@@ -959,10 +974,23 @@ export default function KDSApp() {
                     <LogOut size={14} /> Cerrar Sesión
                   </button>
                   <div className="hide-on-mobile" /> {/* Spacer for desktop to keep buttons right-aligned */}
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <button className="btn btn--ghost" onClick={() => setShowSettingsModal(false)}>Cancelar</button>
-                    <button className="btn btn--primary" onClick={handleSaveSettings} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <Save size={15} /> Confirmar Cambios
+                  <div 
+                    className="flex-center-mobile" 
+                    style={{ display: 'flex', gap: '0.75rem', flex: 1, justifyContent: 'flex-end' }}
+                  >
+                    <button 
+                      className="btn btn--ghost" 
+                      style={{ minWidth: '100px' }} 
+                      onClick={() => setShowSettingsModal(false)}
+                    >
+                      Cancelar
+                    </button>
+                    <button 
+                      className="btn btn--primary" 
+                      onClick={handleSaveSettings} 
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center', minWidth: '100px' }}
+                    >
+                      <Save size={15} /> Confirmar
                     </button>
                   </div>
                 </div>
