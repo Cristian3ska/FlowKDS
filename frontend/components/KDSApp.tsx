@@ -4,7 +4,7 @@ import {
   ChefHat, Wifi, WifiOff, Bell, BellOff, BarChart2,
   PanelRightClose, PanelRightOpen, ClipboardList, Flame,
   CheckSquare, Zap, Timer, MonitorPlay, ListOrdered, History,
-  Circle, X, UtensilsCrossed, Snowflake, CupSoda, Settings as SettingsIcon, ImagePlus, Save, Crop, ZoomIn, Users, LogOut
+  Circle, X, UtensilsCrossed, Snowflake, CupSoda, Settings as SettingsIcon, ImagePlus, Save, Crop, ZoomIn, Users, LogOut, Trash2
 } from 'lucide-react';
 import { useRef } from 'react';
 import { Ticket, Station } from '@/types';
@@ -130,6 +130,8 @@ export default function KDSApp() {
   const [sortMode, setSortMode] = useState<'time' | 'priority'>('priority');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   // Station-specific thresholds stored in state so the hook can read them via ref
   const [redThreshold,    setRedThreshold]    = useState(600);
   const [yellowThreshold, setYellowThreshold] = useState(300);
@@ -233,6 +235,20 @@ export default function KDSApp() {
     setAppName(appNameConfig);
     setAppLogo(appLogoConfig);
     setShowSettingsModal(false);
+  };
+
+  const handleResetData = async () => {
+    setResetLoading(true);
+    try {
+      await api.post('/api/admin/reset-data');
+      setTickets([]);
+      setShowResetConfirm(false);
+      setShowSettingsModal(false);
+    } catch (err) {
+      alert('Error al resetear los datos');
+    } finally {
+      setResetLoading(false);
+    }
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -903,6 +919,25 @@ export default function KDSApp() {
                       </div>
                     </div>
                   </div>
+                  
+                  {currentUser?.role === 'root' && (
+                    <div style={{ padding: '0 2rem 2rem' }}>
+                      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--red)' }}>Mantenimiento del Sistema</h4>
+                        <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                          Esta acción eliminará permanentemente todas las comandas, el historial y las estadísticas de analítica. 
+                          Los usuarios, el menú y las áreas configuradas no se verán afectados.
+                        </p>
+                        <button 
+                          className="btn btn--sm" 
+                          style={{ color: 'var(--red)', alignSelf: 'flex-start', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                          onClick={() => setShowResetConfirm(true)}
+                        >
+                          <Trash2 size={14} /> Vaciar Registros y Estadísticas
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ padding: '1.25rem 2rem', borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -988,6 +1023,50 @@ export default function KDSApp() {
             <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', gap: '0.5rem' }}>
               <button className="btn btn--ghost" style={{ flex: 1 }} onClick={() => setRawLogo(null)}>Cancelar</button>
               <button className="btn btn--success" style={{ flex: 1 }} onClick={confirmLogoCrop}>Guardar Corte</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* RESET CONFIRMATION MODAL */}
+      {showResetConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 4000, 
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', 
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            background: 'var(--bg-card)', width: '100%', maxWidth: '400px', 
+            borderRadius: '16px', border: '1px solid var(--border-bright)', 
+            display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
+          }}>
+            <div style={{ padding: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--red)', padding: '1rem', borderRadius: '50%' }}>
+                <AlertTriangle size={32} />
+              </div>
+              <h3 style={{ margin: 0, fontSize: '1.25rem' }}>¿Vaciar registros?</h3>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                Estás a punto de borrar <strong>todas las comandas y estadísticas</strong> del sistema. Esta acción es irreversible y requiere privilegios de Root.
+                <br /><br />
+                Los usuarios y el menú permanecerán intactos.
+              </p>
+            </div>
+            <div style={{ padding: '1.25rem', display: 'flex', gap: '0.75rem', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)' }}>
+              <button 
+                className="btn btn--ghost" 
+                style={{ flex: 1 }} 
+                onClick={() => setShowResetConfirm(false)}
+                disabled={resetLoading}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn" 
+                style={{ flex: 1, background: 'var(--red)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }} 
+                onClick={handleResetData}
+                disabled={resetLoading}
+              >
+                {resetLoading ? 'Borrando...' : <><Trash2 size={16} /> Sí, Vaciar Todo</>}
+              </button>
             </div>
           </div>
         </div>

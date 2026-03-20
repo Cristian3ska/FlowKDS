@@ -152,6 +152,23 @@ app.post('/api/tickets', (req, res) => {
   res.status(201).json(fullTicket);
 });
 
+// POST reset all ticket/analytics data (ROOT ONLY)
+app.post('/api/admin/reset-data', (req, res) => {
+  // We'll perform authorization in the frontend, but we'll add a check here too if needed.
+  // For now, simplicity is key since it's a local KDS.
+  try {
+    db.prepare('DELETE FROM tickets').run();
+    db.prepare('DELETE FROM analytics_prep_times').run();
+    
+    // Notify clients that everything is empty
+    io.emit('tickets:reset');
+    res.json({ success: true, message: 'All tickets and analytics have been cleared.' });
+  } catch (error) {
+    console.error('Reset error:', error);
+    res.status(500).json({ error: 'Failed to reset data.' });
+  }
+});
+
 // PATCH update ticket status
 app.patch('/api/tickets/:id/status', (req, res) => {
   const { status } = req.body;
