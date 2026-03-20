@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Flow KDS — Kitchen Display System',
+  title: 'Flow KDS',
   description: 'Sistema de visualización de cocina en tiempo real para restaurantes profesionales',
   icons: {
     icon: '/api/logo',

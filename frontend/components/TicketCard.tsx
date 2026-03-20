@@ -249,11 +249,11 @@ export default function TicketCard({ ticket, onUpdated, onCompleted, yellowThres
         {(ticket.status === 'pending' || ticket.status === 'in-progress') && (
           <button
             className="btn btn--success btn--sm"
-            title="Marcar ticket como completado"
-            onClick={() => handleSetStatus('completed')}
+            title="Marcar ticket como listo"
+            onClick={() => handleSetStatus('ready')}
             disabled={loading}
           >
-            <CheckCircle2 size={14} />
+            <Check size={16} strokeWidth={3} />
           </button>
         )}
       </div>

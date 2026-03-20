@@ -166,12 +166,14 @@ app.patch('/api/tickets/:id/status', (req, res) => {
     db.prepare('UPDATE ticket_items SET started_at = ? WHERE ticket_id = ? AND started_at IS NULL')
       .run(now, ticket.id);
   }
+  
+  if (status === 'ready' || status === 'completed') {
+    db.prepare('UPDATE ticket_items SET status = ?, completed_at = COALESCE(completed_at, ?) WHERE ticket_id = ? AND status = ?')
+      .run('ready', now, ticket.id, 'pending');
+  }
 
   if (status === 'completed') {
     update.completed_at = now;
-    db.prepare('UPDATE ticket_items SET status = ?, completed_at = ? WHERE ticket_id = ? AND status != ?')
-      .run('ready', now, ticket.id, 'ready');
-
     // Record analytics
     if (ticket.started_at) {
       const prepTime = Math.floor((now - ticket.started_at) / 1000);

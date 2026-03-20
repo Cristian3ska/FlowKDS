@@ -99,6 +99,7 @@ const init = () => {
 
     INSERT OR IGNORE INTO settings (key, value) VALUES
       ('sound_enabled', 'true'),
+      ('app_name', 'Flow KDS'),
       ('sound_new_order', 'bell'),
       ('sound_delayed', 'alarm'),
       ('alert_yellow_default', '300'),

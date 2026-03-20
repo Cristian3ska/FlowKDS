@@ -1165,3 +1165,28 @@ h3 { font-size: 1rem; font-weight: 600; }
   to   { transform: translateY(0); }
 }
 
+/* ── Responsive Utilities ───────────────────────────────────── */
+@media (max-width: 640px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+@media (min-width: 641px) {
+  .show-on-desktop {
+    display: flex !important;
+  }
+}
+@media (max-width: 640px) {
+  .show-on-desktop {
+    display: none !important;
+  }
+  .show-on-mobile {
+    display: flex !important;
+  }
+}
+@media (min-width: 641px) {
+  .show-on-mobile {
+    display: none !important;
+  }
+}
+

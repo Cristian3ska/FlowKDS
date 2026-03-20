@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: false, // Prevent double-mounting of socket connections in dev
+  experimental: {
+    turbopack: {
+      root: '../',
+    },
+  },
   async rewrites() {
     return [
       {

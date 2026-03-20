@@ -353,7 +353,7 @@ export default function KDSApp() {
         </div>
 
         {/* Status counters */}
-        <div className="kds-header__center">
+        <div className="kds-header__center hide-on-mobile">
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             <span style={{ padding: '0.3rem 0.75rem', background: 'rgba(99,102,241,0.15)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <ClipboardList size={12} />
@@ -372,16 +372,23 @@ export default function KDSApp() {
 
         <div className="kds-header__right">
           {/* Connection status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: connected ? 'var(--green)' : 'var(--red)' }}>
-            <div className={`status-dot ${connected ? '' : 'offline'}`} />
-            {connected
-              ? <><Wifi size={12} /> En línea</>
-              : <><WifiOff size={12} /> Sin conexión</>
-            }
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            fontSize: '0.8rem', 
+            color: connected ? 'var(--green)' : 'var(--red)',
+            fontWeight: 500
+          }}>
+            <div className={`status-dot ${connected ? '' : 'offline'}`} style={{ flexShrink: 0 }} />
+            <div className="hide-on-mobile" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
+              <span>{connected ? 'En línea' : 'Sin conexión'}</span>
+            </div>
           </div>
 
           <button
-            className="btn btn--icon btn--ghost btn--sm"
+            className="btn btn--icon btn--ghost btn--sm hide-on-mobile"
             onClick={toggleSound}
             title={soundEnabled ? 'Silenciar' : 'Activar sonido'}
           >
@@ -391,7 +398,7 @@ export default function KDSApp() {
           {canAccessFull && (
             <>
               <button
-                className="btn btn--ghost btn--sm"
+                className="btn btn--ghost btn--sm hide-on-mobile"
                 onClick={() => setView('menu')}
                 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
               >
@@ -399,7 +406,7 @@ export default function KDSApp() {
               </button>
 
               <button
-                className="btn btn--ghost btn--sm"
+                className="btn btn--ghost btn--sm hide-on-mobile"
                 onClick={() => setView('analytics')}
                 style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
               >
@@ -418,17 +425,17 @@ export default function KDSApp() {
           )}
 
           <button
-            className="btn btn--ghost btn--icon btn--sm"
+            className="btn btn--ghost btn--icon btn--sm hide-on-mobile"
             onClick={() => setSidebarOpen(o => !o)}
             title="Panel lateral"
           >
             {sidebarOpen ? <PanelRightClose size={15} /> : <PanelRightOpen size={15} />}
           </button>
 
-          <div style={{ width: '1px', height: '20px', background: 'var(--border)', margin: '0 0.2rem' }} />
+          <div className="hide-on-mobile" style={{ width: '1px', height: '20px', background: 'var(--border)', margin: '0 0.2rem' }} />
 
           <button
-            className="btn btn--ghost btn--icon btn--sm"
+            className="btn btn--ghost btn--icon btn--sm hide-on-mobile"
             style={{ color: 'var(--red)' }}
             onClick={() => {
               setCurrentUser(null);
@@ -898,11 +905,25 @@ export default function KDSApp() {
                   </div>
                 </div>
 
-                <div style={{ padding: '1.25rem 2rem', borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                  <button className="btn btn--ghost" onClick={() => setShowSettingsModal(false)}>Cancelar</button>
-                  <button className="btn btn--primary" onClick={handleSaveSettings} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <Save size={15} /> Confirmar Cambios
+                <div style={{ padding: '1.25rem 2rem', borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)', display: 'flex', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button 
+                    className="btn btn--ghost btn--sm show-on-mobile" 
+                    style={{ color: 'var(--red)', border: '1px solid rgba(239,68,68,0.2)' }}
+                    onClick={() => {
+                      setCurrentUser(null);
+                      setView('kds');
+                      setShowSettingsModal(false);
+                    }}
+                  >
+                    <LogOut size={14} /> Cerrar Sesión
                   </button>
+                  <div className="hide-on-mobile" /> {/* Spacer for desktop to keep buttons right-aligned */}
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button className="btn btn--ghost" onClick={() => setShowSettingsModal(false)}>Cancelar</button>
+                    <button className="btn btn--primary" onClick={handleSaveSettings} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Save size={15} /> Confirmar Cambios
+                    </button>
+                  </div>
                 </div>
               </>
             ) : settingsTab === 'users' ? (
