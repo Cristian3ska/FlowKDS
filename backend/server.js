@@ -120,6 +120,22 @@ app.get('/api/tickets/:id', (req, res) => {
   res.json({ ...ticket, items: items.map(i => ({ ...i, modifiers: JSON.parse(i.modifiers || '[]') })) });
 });
 
+// GET all active table accounts
+app.get('/api/accounts', (req, res) => {
+  const accounts = db.prepare('SELECT * FROM table_accounts').all()
+    .map(a => ({ ...a, items: JSON.parse(a.items || '[]') }));
+  res.json(accounts);
+});
+
+// DELETE a table account (Payment / Close)
+app.delete('/api/accounts/:tableId', (req, res) => {
+  db.prepare('DELETE FROM table_accounts WHERE table_id = ?').run(req.params.tableId);
+  const allAccounts = db.prepare('SELECT * FROM table_accounts').all()
+    .map(a => ({ ...a, items: JSON.parse(a.items || '[]') }));
+  io.emit('accounts:updated', allAccounts);
+  res.status(204).send();
+});
+
 // POST create a new ticket (from POS)
 app.post('/api/tickets', (req, res) => {
   const { order_number, table_number, order_type, station, priority, notes, items } = req.body;
@@ -142,6 +158,30 @@ app.post('/api/tickets', (req, res) => {
     }
   }
 
+  // UPDATE Table Account state (For cross-device billing)
+  if (table_number) {
+    const orderItems = items.map(i => ({ ...i, price: Number(i.price || 0) }));
+    const orderTotal = orderItems.reduce((s, i) => s + (i.price * (i.quantity || 1)), 0);
+    const existing = db.prepare('SELECT * FROM table_accounts WHERE table_id = ?').get(table_number);
+    
+    let updatedItems = [];
+    if (existing) {
+      const prevItems = JSON.parse(existing.items || '[]');
+      updatedItems = [...prevItems, ...orderItems];
+      db.prepare('UPDATE table_accounts SET total = total + ?, items = ? WHERE table_id = ?')
+        .run(orderTotal, JSON.stringify(updatedItems), table_number);
+    } else {
+      updatedItems = orderItems;
+      db.prepare('INSERT INTO table_accounts (table_id, total, items) VALUES (?, ?, ?)')
+        .run(table_number, orderTotal, JSON.stringify(updatedItems));
+    }
+    
+    // Broadcast updated account status to all clients
+    const allAccounts = db.prepare('SELECT * FROM table_accounts').all()
+      .map(a => ({ ...a, items: JSON.parse(a.items || '[]') }));
+    io.emit('accounts:updated', allAccounts);
+  }
+
   const fullTicket = {
     ...db.prepare('SELECT * FROM tickets WHERE id = ?').get(id),
     items: db.prepare('SELECT * FROM ticket_items WHERE ticket_id = ?').all(id)
@@ -159,10 +199,12 @@ app.post('/api/admin/reset-data', (req, res) => {
   try {
     db.prepare('DELETE FROM tickets').run();
     db.prepare('DELETE FROM analytics_prep_times').run();
+    db.prepare('DELETE FROM table_accounts').run();
     
     // Notify clients that everything is empty
     io.emit('tickets:reset');
-    res.json({ success: true, message: 'All tickets and analytics have been cleared.' });
+    io.emit('accounts:updated', []);
+    res.json({ success: true, message: 'All tickets, analytics and accounts have been cleared.' });
   } catch (error) {
     console.error('Reset error:', error);
     res.status(500).json({ error: 'Failed to reset data.' });
@@ -610,6 +652,10 @@ io.on('connection', (socket) => {
 
   // Send current state on connect
   socket.emit('tickets:init', getTickets('all'));
+  
+  const accounts = db.prepare('SELECT * FROM table_accounts').all()
+    .map(a => ({ ...a, items: JSON.parse(a.items || '[]') }));
+  socket.emit('accounts:init', accounts);
 
   socket.on('subscribe:station', (station) => {
     socket.join(`station:${station}`);

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Plus, Minus, X, Send, Zap, Check, Flame, Snowflake, UtensilsCrossed, ShoppingBag, ChevronRight, Search, DollarSign } from 'lucide-react';
 import { api } from '@/lib/utils';
 
@@ -49,7 +49,7 @@ interface TableOrder {
 const emptyOrder = (): TableOrder => ({ items: [], notes: '', priority: 0 });
 
 // ── Component ─────────────────────────────────────────────────────────────
-export default function PosSimulator() {
+export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   useEffect(() => {
     api.get('/api/menu').then(setMenuItems);
@@ -78,9 +78,9 @@ export default function PosSimulator() {
   const [loading,   setLoading]   = useState(false);
   const [lastOrder, setLastOrder] = useState<{ table: string; num: string } | null>(null);
 
-  // Table cumulative bill
-  const [tableBills, setTableBills] = useState<Record<string, number>>({});
-  const [tableSentItems, setTableSentItems] = useState<Record<string, OrderItem[]>>({});
+  // Table cumulative bill (Now derived from props)
+  const tableBills      = useMemo(() => Object.fromEntries(accounts.map(a => [a.table_id, a.total])), [accounts]);
+  const tableSentItems  = useMemo(() => Object.fromEntries(accounts.map(a => [a.table_id, a.items])), [accounts]);
   const [showBillModalFor, setShowBillModalFor] = useState<string | null>(null);
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -214,26 +214,17 @@ export default function PosSimulator() {
         items:        order.items,
       });
 
-      // Calculate total for this submission and add to table's bill
-      const orderTotal = order.items.reduce((s, i) => s + ((i.price||0) * i.quantity), 0);
-      setTableBills(prev => ({
-        ...prev, 
-        [activeTable]: (prev[activeTable] || 0) + orderTotal
-      }));
-
-      // Accumulate items for the account summary
-      setTableSentItems(prev => ({
-        ...prev,
-        [activeTable]: [...(prev[activeTable] || []), ...order.items]
-      }));
-
       setLastOrder({ table: activeTable, num: ticket.order_number });
+      
       // Clear this table's order
       setTableOrders(prev => {
         const next = { ...prev };
         delete next[activeTable];
         return next;
       });
+    } catch (err) {
+      console.error(err);
+      alert('Error al enviar la comanda');
     } finally {
       setLoading(false);
     }
@@ -673,7 +664,7 @@ export default function PosSimulator() {
               {tableSentItems[showBillModalFor]?.length === 0 && (
                 <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No hay productos en la cuenta.</div>
               )}
-              {tableSentItems[showBillModalFor]?.map((item, idx) => (
+              {(tableSentItems[showBillModalFor] as OrderItem[])?.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', fontSize: '0.9rem' }}>
                   <div>
                     <span style={{ fontWeight: 600 }}>{item.quantity}x {item.name}</span>
@@ -705,11 +696,16 @@ export default function PosSimulator() {
                 <button 
                   className="btn btn--success" 
                   style={{ flex: 1, fontWeight: 600 }} 
-                  onClick={() => {
-                     setTableBills(prev => { const n = {...prev}; delete n[showBillModalFor]; return n; });
-                     setTableSentItems(prev => { const n = {...prev}; delete n[showBillModalFor]; return n; });
-                     setShowBillModalFor(null);
-                     if (activeTable === showBillModalFor) setActiveTable(null);
+                  onClick={async () => {
+                     if (!showBillModalFor) return;
+                     try {
+                       await api.delete(`/api/accounts/${showBillModalFor}`);
+                       setShowBillModalFor(null);
+                       if (activeTable === showBillModalFor) setActiveTable(null);
+                     } catch (err) {
+                       console.error(err);
+                       alert('Error al cerrar la cuenta');
+                     }
                   }}
                 >
                   Cobrar y Cerrar

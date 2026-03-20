@@ -137,7 +137,7 @@ export default function KDSApp() {
   const [yellowThreshold, setYellowThreshold] = useState(300);
 
   // Hook reads redThreshold via ref internally — passes the latest value on each render
-  const { tickets, setTickets, connected } = useKDSSocket(soundEnabled, redThreshold);
+  const { tickets, setTickets, accounts, setAccounts, connected } = useKDSSocket(soundEnabled, redThreshold);
 
   useEffect(() => {
     api.get('/api/stations').then(setStations);
@@ -652,7 +652,7 @@ export default function KDSApp() {
             {sidebarTab === 'simulator' && (
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 <div className="section-label" style={{ marginBottom: '0.5rem' }}>Simulador POS</div>
-                <PosSimulator />
+                <PosSimulator accounts={accounts} />
               </div>
             )}
 

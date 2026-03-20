@@ -13,6 +13,7 @@ interface UseKDSSocketOptions {
 
 export function useKDSSocket(soundEnabled: boolean, redThreshold = 600) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [accounts, setAccounts] = useState<any[]>([]);
   const [connected, setConnected] = useState(false);
   const socketRef       = useRef<Socket | null>(null);
   const soundEnabledRef = useRef(soundEnabled);
@@ -82,6 +83,14 @@ export function useKDSSocket(soundEnabled: boolean, redThreshold = 600) {
       }
     });
 
+    socket.on('accounts:init', (data: any[]) => {
+      setAccounts(data);
+    });
+
+    socket.on('accounts:updated', (data: any[]) => {
+      setAccounts(data);
+    });
+
     socket.on('ticket:new', (ticket: Ticket) => {
       setTickets(prev => {
         if (prev.find(t => t.id === ticket.id)) return prev;
@@ -107,5 +116,5 @@ export function useKDSSocket(soundEnabled: boolean, redThreshold = 600) {
     };
   }, [updateTicket]);
 
-  return { tickets, setTickets, connected, socket: socketRef.current };
+  return { tickets, setTickets, accounts, setAccounts, connected, socket: socketRef.current };
 }

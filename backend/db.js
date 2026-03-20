@@ -97,7 +97,18 @@ const init = () => {
       role TEXT NOT NULL
     );
 
-    INSERT OR IGNORE INTO settings (key, value) VALUES
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS table_accounts (
+      table_id TEXT PRIMARY KEY,
+      total REAL DEFAULT 0,
+      items TEXT DEFAULT '[]'
+    );
+
+    INSERT OR IGNORE INTO stations (id, name, label, color, time_alert_yellow, time_alert_red) VALUES
       ('sound_enabled', 'true'),
       ('app_name', 'Flow KDS'),
       ('sound_new_order', 'bell'),
