@@ -765,7 +765,9 @@ export default function KDSApp() {
                     color: settingsTab === 'system' ? 'var(--accent)' : 'var(--text-muted)',
                     fontWeight: settingsTab === 'system' ? 700 : 500, fontSize: '0.95rem', cursor: 'pointer',
                     borderTopLeftRadius: '12px', borderTopRightRadius: '12px',
-                    border: settingsTab === 'system' ? '1px solid var(--border)' : '1px solid transparent',
+                    borderTop: settingsTab === 'system' ? '1px solid var(--border)' : '1px solid transparent',
+                    borderLeft: settingsTab === 'system' ? '1px solid var(--border)' : '1px solid transparent',
+                    borderRight: settingsTab === 'system' ? '1px solid var(--border)' : '1px solid transparent',
                     borderBottom: 'none', marginBottom: '-1px'
                   }}
                 >
@@ -778,7 +780,9 @@ export default function KDSApp() {
                     color: settingsTab === 'areas' ? 'var(--accent)' : 'var(--text-muted)',
                     fontWeight: settingsTab === 'areas' ? 700 : 500, fontSize: '0.95rem', cursor: 'pointer',
                     borderTopLeftRadius: '12px', borderTopRightRadius: '12px',
-                    border: settingsTab === 'areas' ? '1px solid var(--border)' : '1px solid transparent',
+                    borderTop: settingsTab === 'areas' ? '1px solid var(--border)' : '1px solid transparent',
+                    borderLeft: settingsTab === 'areas' ? '1px solid var(--border)' : '1px solid transparent',
+                    borderRight: settingsTab === 'areas' ? '1px solid var(--border)' : '1px solid transparent',
                     borderBottom: 'none', marginBottom: '-1px'
                   }}
                 >
@@ -791,7 +795,9 @@ export default function KDSApp() {
                     color: settingsTab === 'users' ? 'var(--accent)' : 'var(--text-muted)',
                     fontWeight: settingsTab === 'users' ? 700 : 500, fontSize: '0.95rem', cursor: 'pointer',
                     borderTopLeftRadius: '12px', borderTopRightRadius: '12px',
-                    border: settingsTab === 'users' ? '1px solid var(--border)' : '1px solid transparent',
+                    borderTop: settingsTab === 'users' ? '1px solid var(--border)' : '1px solid transparent',
+                    borderLeft: settingsTab === 'users' ? '1px solid var(--border)' : '1px solid transparent',
+                    borderRight: settingsTab === 'users' ? '1px solid var(--border)' : '1px solid transparent',
                     borderBottom: 'none', marginBottom: '-1px'
                   }}
                 >
