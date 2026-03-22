@@ -269,6 +269,18 @@ app.post('/api/admin/reset-data', (req, res) => {
   }
 });
 
+// POST reset all menu items (ROOT ONLY)
+app.post('/api/admin/reset-menu', (req, res) => {
+  try {
+    db.prepare('DELETE FROM menu_items').run();
+    io.emit('menu:updated', []);
+    res.json({ success: true, message: 'All menu items have been cleared.' });
+  } catch (error) {
+    console.error('Menu reset error:', error);
+    res.status(500).json({ error: 'Failed to reset menu.' });
+  }
+});
+
 // PATCH update ticket status
 app.patch('/api/tickets/:id/status', (req, res) => {
   const { status } = req.body;

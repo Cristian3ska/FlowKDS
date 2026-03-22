@@ -83,7 +83,7 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Item builder (generalized for food & drinks)
-  const [selectedItem, setSelectedItem] = useState<{ name: string; modifiers: string[]; price?: number } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
   const [selectedSize,  setSelectedSize]  = useState('Mediano');
   const [selectedMods,  setSelectedMods]  = useState<string[]>([]);
 
@@ -184,12 +184,16 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
     if (!selectedItem || !activeTable) return;
     
     // Si es bebida, agregar el tamaño como modificador principal
-    const isDrink = category !== 'food';
-    const mods = isDrink ? [selectedSize, ...selectedMods].filter(Boolean) : selectedMods;
+    const isDrink = ['bar_hot', 'bar_cold'].includes(category);
+    const rawMods = isDrink ? [selectedSize, ...selectedMods].filter(Boolean) : [...selectedMods];
+    
+    // Limpiar artefactos del UI para combos
+    const finalMods = rawMods.map(m => m.replace(/^COMBO_[^:]+:\s*/, ''));
+
     const station = category;
 
     setOrder(activeTable, prev => {
-      const key = `${selectedItem.name}|${mods.join(',')}|${station}`;
+      const key = `${selectedItem.name}|${finalMods.join(',')}|${station}`;
       const exists = prev.items.find(i => `${i.name}|${i.modifiers.join(',')}|${i.station}` === key);
       if (exists) return {
         ...prev,
@@ -198,7 +202,7 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
             ? { ...i, quantity: i.quantity + 1 } : i
         ),
       };
-      return { ...prev, items: [...prev.items, { name: selectedItem.name, quantity: 1, station, modifiers: mods, price: selectedItem.price || 0 }] };
+      return { ...prev, items: [...prev.items, { name: selectedItem.name, quantity: 1, station, modifiers: finalMods, price: selectedItem.price || 0 }] };
     });
     setSelectedItem(null);
   };
@@ -501,41 +505,91 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
                 </button>
               </div>
 
-              {category !== 'food' && (
-                <div>
-                  <div className="form-label" style={{ marginBottom: '0.3rem' }}>Tamaño</div>
-                  <div style={{ display: 'flex', gap: '0.3rem' }}>
-                    {DRINK_SIZES.map(s => (
-                      <button key={s}
-                        onClick={() => setSelectedSize(s)}
-                        className={`btn btn--sm ${selectedSize === s ? 'btn--primary' : 'btn--ghost'}`}
-                        style={{ flex: 1, fontSize: '0.7rem' }}
-                      >{s}</button>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {(() => {
+                const normalMods = selectedItem.modifiers.filter(m => !m.startsWith('COMBO_'));
+                const comboMods = selectedItem.modifiers.filter(m => m.startsWith('COMBO_'));
+                
+                const comboGroups: Record<string, string[]> = {};
+                comboMods.forEach(mod => {
+                  const arr = mod.split(':');
+                  const groupLabel = arr[0].replace('COMBO_', '');
+                  const opt = arr.slice(1).join(':');
+                  if (!comboGroups[groupLabel]) comboGroups[groupLabel] = [];
+                  comboGroups[groupLabel].push(opt);
+                });
 
-              {selectedItem.modifiers.length > 0 && (
-                <div>
-                  <div className="form-label" style={{ marginBottom: '0.3rem' }}>Personalizar</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                    {selectedItem.modifiers.map(mod => (
-                      <button key={mod} onClick={() => toggleMod(mod)}
-                        className={`btn btn--sm ${selectedMods.includes(mod) ? 'btn--success' : 'btn--ghost'}`}
-                        style={{ fontSize: '0.7rem' }}
-                      >
-                        {selectedMods.includes(mod) && <Check size={9} strokeWidth={3} />}{mod}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                const isComboValid = Object.keys(comboGroups).every(groupLabel => 
+                   selectedMods.some(m => m.startsWith(`COMBO_${groupLabel}:`))
+                );
 
-              <button className="btn btn--primary btn--full" onClick={confirmItem}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.78rem' }}>
-                <Plus size={13} /> Agregar a la orden
-              </button>
+                return (
+                  <>
+                    {['bar_hot', 'bar_cold'].includes(selectedItem.category) && (
+                      <div>
+                        <div className="form-label" style={{ marginBottom: '0.3rem' }}>Tamaño</div>
+                        <div style={{ display: 'flex', gap: '0.3rem' }}>
+                          {DRINK_SIZES.map(s => (
+                            <button key={s}
+                              onClick={() => setSelectedSize(s)}
+                              className={`btn btn--sm ${selectedSize === s ? 'btn--primary' : 'btn--ghost'}`}
+                              style={{ flex: 1, fontSize: '0.7rem' }}
+                            >{s}</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {Object.keys(comboGroups).sort().map(groupLabel => (
+                      <div key={groupLabel} style={{ marginBottom: '0.2rem' }}>
+                        <div className="form-label" style={{ marginBottom: '0.3rem', fontSize: '0.73rem', fontWeight: 700 }}>
+                          {groupLabel.replace(/^\d+\.\s*/, '')}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                          {comboGroups[groupLabel].map(option => {
+                            const modKey = `COMBO_${groupLabel}:${option}`;
+                            const isSelected = selectedMods.includes(modKey);
+                            return (
+                              <button key={option} onClick={() => {
+                                 setSelectedMods(prev => {
+                                    const withoutGroup = prev.filter(m => !m.startsWith(`COMBO_${groupLabel}:`));
+                                    return [...withoutGroup, modKey];
+                                 });
+                              }}
+                                className={`btn btn--sm ${isSelected ? 'btn--success' : 'btn--ghost'}`}
+                                style={{ fontSize: '0.68rem', flex: 1, minWidth: '45%', whiteSpace: 'normal', height: 'auto', padding: '0.45rem', lineHeight: '1.3' }}
+                              >
+                                {isSelected && <Check size={11} strokeWidth={3} />} {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+
+                    {normalMods.length > 0 && (
+                      <div>
+                        <div className="form-label" style={{ marginBottom: '0.3rem' }}>Personalizar</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                          {normalMods.map(mod => (
+                            <button key={mod} onClick={() => toggleMod(mod)}
+                              className={`btn btn--sm ${selectedMods.includes(mod) ? 'btn--success' : 'btn--ghost'}`}
+                              style={{ fontSize: '0.68rem', flex: '1 1 45%', whiteSpace: 'normal', height: 'auto', padding: '0.45rem', lineHeight: '1.3' }}
+                            >
+                              {selectedMods.includes(mod) && <Check size={9} strokeWidth={3} />}{mod}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <button className="btn btn--primary btn--full" onClick={confirmItem}
+                      disabled={!isComboValid}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.78rem', marginTop: '0.4rem' }}>
+                      <Plus size={13} /> Agregar a la orden
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           )}
 

@@ -130,7 +130,8 @@ export default function KDSApp() {
   const [sortMode, setSortMode] = useState<'time' | 'priority'>('priority');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetAction, setResetAction] = useState<'data' | 'menu' | null>(null);
+  const [resetModalPassword, setResetModalPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
   // Station-specific thresholds stored in state so the hook can read them via ref
   const [redThreshold,    setRedThreshold]    = useState(600);
@@ -352,15 +353,36 @@ export default function KDSApp() {
     setShowSettingsModal(false);
   };
 
-  const handleResetData = async () => {
+  const executeReset = async () => {
+    if (!resetAction || !currentUser) return;
+    
     setResetLoading(true);
     try {
-      await api.post('/api/admin/reset-data');
-      setTickets([]);
-      setShowResetConfirm(false);
+      // Validar contraseña
+      const authRes = await api.post('/api/auth/login', {
+        username: currentUser.username,
+        password: resetModalPassword
+      });
+
+      if (authRes?.error || !authRes) {
+        alert('Contraseña incorrecta.');
+        setResetLoading(false);
+        return;
+      }
+      
+      if (resetAction === 'data') {
+        await api.post('/api/admin/reset-data', {});
+        setTickets([]);
+      } else if (resetAction === 'menu') {
+        await api.post('/api/admin/reset-menu', {});
+      }
+      
+      setResetAction(null);
+      setResetModalPassword('');
       setShowSettingsModal(false);
+      alert('Acción completada.');
     } catch (err) {
-      alert('Error al resetear los datos');
+      alert('Error de validación o al borrar datos');
     } finally {
       setResetLoading(false);
     }
@@ -1095,16 +1117,24 @@ export default function KDSApp() {
                       <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--red)' }}>Mantenimiento del Sistema</h4>
                         <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                          Esta acción eliminará permanentemente todas las comandas, el historial y las estadísticas de analítica. 
-                          Los usuarios, el menú y las áreas configuradas no se verán afectados.
+                          Cuidado: Estas operaciones son destructivas, irreversibles y requieren contraseña.
                         </p>
-                        <button 
-                          className="btn btn--sm" 
-                          style={{ color: 'var(--red)', alignSelf: 'flex-start', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                          onClick={() => setShowResetConfirm(true)}
-                        >
-                          <Trash2 size={14} /> Vaciar Registros y Estadísticas
-                        </button>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <button 
+                            className="btn btn--sm" 
+                            style={{ color: 'var(--red)', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                            onClick={() => { setResetAction('data'); setResetModalPassword(''); }}
+                          >
+                            <Trash2 size={14} /> Vaciar Registros y Estadísticas
+                          </button>
+                          <button 
+                            className="btn btn--sm" 
+                            style={{ color: 'var(--yellow)', border: '1px solid rgba(234,179,8,0.3)', background: 'rgba(234,179,8,0.05)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                            onClick={() => { setResetAction('menu'); setResetModalPassword(''); }}
+                          >
+                            <Trash2 size={14} /> Vaciar todo el Menú
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1219,44 +1249,59 @@ export default function KDSApp() {
         </div>
       )}
       {/* RESET CONFIRMATION MODAL */}
-      {showResetConfirm && (
+      {resetAction && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 4000, 
-          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(5px)', 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)', zIndex: 100000,
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
         }}>
           <div style={{
-            background: 'var(--bg-card)', width: '100%', maxWidth: '400px', 
+            background: 'var(--bg-primary)', width: '100%', maxWidth: '400px',
             borderRadius: '16px', border: '1px solid var(--border-bright)', 
             display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.5)'
           }}>
             <div style={{ padding: '2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-              <div style={{ background: 'rgba(239,68,68,0.15)', color: 'var(--red)', padding: '1rem', borderRadius: '50%' }}>
+              <div style={{ background: resetAction === 'data' ? 'rgba(239,68,68,0.15)' : 'rgba(234,179,8,0.15)', color: resetAction === 'data' ? 'var(--red)' : 'var(--yellow)', padding: '1rem', borderRadius: '50%' }}>
                 <AlertTriangle size={32} />
               </div>
-              <h3 style={{ margin: 0, fontSize: '1.25rem' }}>¿Vaciar registros?</h3>
+              <h3 style={{ margin: 0, fontSize: '1.25rem' }}>{resetAction === 'data' ? '¿Vaciar registros?' : '¿Vaciar el menú?'}</h3>
               <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                Estás a punto de borrar <strong>todas las comandas y estadísticas</strong> del sistema. Esta acción es irreversible y requiere privilegios de Root.
-                <br /><br />
-                Los usuarios y el menú permanecerán intactos.
+                {resetAction === 'data' ? (
+                  <>Estás a punto de borrar <strong>todas las comandas y estadísticas</strong> del sistema. Acción irreversible.<br />Los usuarios y el menú estarán a salvo.</>
+                ) : (
+                  <>Estás a punto de borrar <strong>todos los platillos y categorías</strong> del menú del sistema.</>
+                )}
               </p>
+
+              <div className="form-group" style={{ width: '100%', textAlign: 'left', marginTop: '0.5rem' }}>
+                <label className="form-label">Por favor, confirma tu contraseña:</label>
+                <input 
+                  type="password" 
+                  className="form-input" 
+                  autoFocus
+                  placeholder="Tu contraseña..."
+                  value={resetModalPassword}
+                  onChange={e => setResetModalPassword(e.target.value)}
+                  style={{ width: '100%' }}
+                />
+              </div>
             </div>
             <div style={{ padding: '1.25rem', display: 'flex', gap: '0.75rem', background: 'var(--bg-secondary)', borderTop: '1px solid var(--border)' }}>
               <button 
                 className="btn btn--ghost" 
                 style={{ flex: 1 }} 
-                onClick={() => setShowResetConfirm(false)}
+                onClick={() => { setResetAction(null); setResetModalPassword(''); }}
                 disabled={resetLoading}
               >
                 Cancelar
               </button>
               <button 
                 className="btn" 
-                style={{ flex: 1, background: 'var(--red)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }} 
-                onClick={handleResetData}
-                disabled={resetLoading}
+                style={{ flex: 1, background: resetAction === 'data' ? 'var(--red)' : 'var(--yellow)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }} 
+                onClick={executeReset}
+                disabled={resetLoading || resetModalPassword.length === 0}
               >
-                {resetLoading ? 'Borrando...' : <><Trash2 size={16} /> Sí, Vaciar Todo</>}
+                {resetLoading ? 'Borrando...' : <><Trash2 size={16} /> Sí, Borrar Todo</>}
               </button>
             </div>
           </div>
