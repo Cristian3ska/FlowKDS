@@ -430,6 +430,11 @@ h3 { font-size: 1rem; font-weight: 600; }
   font-size: 1rem;
 }
 
+.btn:active:not(:disabled) {
+  transform: scale(0.95);
+  transition: transform 0.05s ease;
+}
+
 .btn--sm {
   padding: 0.35rem 0.75rem;
   font-size: 0.75rem;
@@ -677,6 +682,18 @@ h3 { font-size: 1rem; font-weight: 600; }
 /* table grid button hover (inline-style buttons in PosSimulator) */
 .simulator-panel button:hover {
   filter: brightness(1.08);
+}
+
+.menu-item-btn {
+  position: relative;
+  overflow: hidden;
+}
+
+.menu-item-btn:active {
+  background: rgba(34, 197, 94, 0.2) !important;
+  border-color: var(--green) !important;
+  transform: scale(0.96);
+  transition: all 0.05s ease;
 }
 
 .form-group {

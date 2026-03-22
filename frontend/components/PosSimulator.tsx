@@ -364,14 +364,25 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
 
           {/* Table header + notes + urgent */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, minWidth: 0 }}>
               <div style={{
                 background: 'var(--accent)', color: 'white', width: '22px', height: '22px',
-                borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem'
+                borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', flexShrink: 0
               }}>
                 {TABLES.find(t => t.id === activeTable)?.icon}
               </div>
-              {activeTable}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1, minWidth: 0 }}>
+                {(() => {
+                  const lastSpace = activeTable.lastIndexOf(' ');
+                  if (lastSpace === -1) return <span>{activeTable}</span>;
+                  return (
+                    <>
+                      <span style={{ fontSize: '0.8rem' }}>{activeTable.substring(0, lastSpace)}</span>
+                      <span style={{ fontSize: '1.05rem', marginTop: '-0.1rem' }}>{activeTable.substring(lastSpace + 1)}</span>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
 
             {/* Cobrar btn si hay cuenta abierta */}
@@ -502,39 +513,39 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
           {/* Item grid */}
           {!selectedItem && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.3rem', maxHeight: '45vh', overflowY: 'auto', paddingRight: '0.3rem' }}>
-              {filteredMenu.map(item => (
-                <button
-                  key={item.name}
-                  className="btn btn--ghost btn--sm"
-                  style={{ 
-                    justifyContent: 'flex-start', fontSize: '0.75rem', textAlign: 'left', 
-                    gap: '0.4rem', padding: '0.45rem 0.6rem',
-                    background: 'var(--bg-secondary)',
-                    transition: 'background 0.1s ease',
-                  }}
-                  onPointerDown={(e) => {
-                    e.currentTarget.style.background = 'rgba(34, 197, 94, 0.2)'; 
-                    e.currentTarget.style.borderColor = 'var(--green)';
-                  }}
-                  onPointerUp={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-secondary)';
-                    e.currentTarget.style.borderColor = 'transparent';
-                  }}
-                  onPointerLeave={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-secondary)';
-                    e.currentTarget.style.borderColor = 'transparent';
-                  }}
-                  onClick={() => handleItemClick(item)}
-                >
-                  {category === 'food'
-                    ? <UtensilsCrossed size={11} style={{ opacity: 0.4, flexShrink: 0 }} />
-                    : category === 'bar_hot'
-                      ? <Flame size={11} style={{ color: '#ef4444', opacity: 0.8, flexShrink: 0 }} />
-                      : <Snowflake size={11} style={{ color: '#06b6d4', opacity: 0.8, flexShrink: 0 }} />
-                  }
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
-                </button>
-              ))}
+              {filteredMenu.map(item => {
+                const qtyAdded = activeOrder.items.reduce((sum, i) => i.name === item.name ? sum + i.quantity : sum, 0);
+                return (
+                  <button
+                    key={item.name}
+                    className="btn btn--ghost btn--sm menu-item-btn"
+                    style={{ 
+                      justifyContent: 'flex-start', fontSize: '0.75rem', textAlign: 'left', 
+                      gap: '0.4rem', padding: '0.45rem 0.6rem',
+                      background: 'var(--bg-secondary)'
+                    }}
+                    onClick={() => handleItemClick(item)}
+                  >
+                    {category === 'food'
+                      ? <UtensilsCrossed size={11} style={{ opacity: 0.4, flexShrink: 0 }} />
+                      : category === 'bar_hot'
+                        ? <Flame size={11} style={{ color: '#ef4444', opacity: 0.8, flexShrink: 0 }} />
+                        : <Snowflake size={11} style={{ color: '#06b6d4', opacity: 0.8, flexShrink: 0 }} />
+                    }
+                    <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
+                    {qtyAdded > 0 && (
+                      <span style={{
+                        background: 'var(--green)', color: 'white',
+                        borderRadius: '99px', padding: '0.1rem 0.35rem',
+                        fontSize: '0.65rem', fontWeight: 800,
+                        marginLeft: 'auto'
+                      }}>
+                        {qtyAdded}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
 

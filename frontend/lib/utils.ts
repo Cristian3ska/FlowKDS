@@ -231,20 +231,33 @@ function playSoftPing(ctx: AudioContext) {
 
 export type SoundType = 'new_order' | 'delayed' | 'complete' | 'item_ready' | 'digital' | 'pop' | 'buzzer' | 'ping';
 
+export const soundConfig = {
+  new_order: 'new_order' as SoundType,
+  delayed: 'delayed' as SoundType,
+  complete: 'complete' as SoundType,
+  item_ready: 'item_ready' as SoundType,
+};
+
+export function updateSoundConfig(config: Partial<typeof soundConfig>) {
+  Object.assign(soundConfig, config);
+}
+
 export function playSound(type: SoundType) {
   try {
-    if (type === 'new_order') {
+    const actualSound = soundConfig[type as keyof typeof soundConfig] || type;
+
+    if (actualSound === 'new_order') {
       playNewOrderSound();
       return;
     }
     
     const ctx = getAudioContext();
-    if (type === 'delayed')    playDelayedSound(ctx);
-    else if (type === 'complete')   playCompleteSound(ctx);
-    else if (type === 'item_ready') playItemReadySound(ctx);
-    else if (type === 'digital')    playDigitalChime(ctx);
-    else if (type === 'pop')        playBubblePop(ctx);
-    else if (type === 'buzzer')     playBuzzer(ctx);
-    else if (type === 'ping')       playSoftPing(ctx);
+    if (actualSound === 'delayed')    playDelayedSound(ctx);
+    else if (actualSound === 'complete')   playCompleteSound(ctx);
+    else if (actualSound === 'item_ready') playItemReadySound(ctx);
+    else if (actualSound === 'digital')    playDigitalChime(ctx);
+    else if (actualSound === 'pop')        playBubblePop(ctx);
+    else if (actualSound === 'buzzer')     playBuzzer(ctx);
+    else if (actualSound === 'ping')       playSoftPing(ctx);
   } catch { /* ignore audio errors in restricted environments */ }
 }

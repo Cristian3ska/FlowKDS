@@ -9,7 +9,7 @@ import {
 import { useRef } from 'react';
 import { Ticket, Station } from '@/types';
 import { useKDSSocket } from '@/hooks/useKDSSocket';
-import { api, STATION_LABELS, STATION_COLORS, playSound } from '@/lib/utils';
+import { api, STATION_LABELS, STATION_COLORS, playSound, updateSoundConfig } from '@/lib/utils';
 import TicketCard from '@/components/TicketCard';
 import HistoryPanel from '@/components/HistoryPanel';
 import ConsolidationPanel from '@/components/ConsolidationPanel';
@@ -137,7 +137,35 @@ export default function KDSApp() {
   const [yellowThreshold, setYellowThreshold] = useState(300);
 
   // Hook reads redThreshold via ref internally — passes the latest value on each render
-  const { tickets, setTickets, accounts, setAccounts, connected } = useKDSSocket(soundEnabled, redThreshold);
+  const { tickets, setTickets, accounts, setAccounts, connected, socket } = useKDSSocket(soundEnabled, redThreshold);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleSettingsUpdate = (s: any) => {
+      if (s.sound_enabled !== undefined) setSoundEnabled(s.sound_enabled === 'true');
+      if (s.app_name) setAppName(s.app_name);
+      if (s.app_logo) {
+        setAppLogo(s.app_logo);
+        updateFavicon(s.app_logo);
+      }
+      if (s.sound_new_order) setSoundNewConfig(s.sound_new_order);
+      if (s.sound_delayed) setSoundDelayedConfig(s.sound_delayed);
+      if (s.sound_complete) setSoundCompleteConfig(s.sound_complete);
+      if (s.sound_item_ready) setSoundItemReadyConfig(s.sound_item_ready);
+
+      updateSoundConfig({
+        new_order: (s.sound_new_order as any) || 'new_order',
+        delayed: (s.sound_delayed as any) || 'delayed',
+        complete: (s.sound_complete as any) || 'complete',
+        item_ready: (s.sound_item_ready as any) || 'item_ready',
+      });
+    };
+
+    socket.on('settings:updated', handleSettingsUpdate);
+    return () => {
+      socket.off('settings:updated', handleSettingsUpdate);
+    };
+  }, [socket]);
 
   useEffect(() => {
     api.get('/api/stations').then(setStations);
@@ -149,6 +177,17 @@ export default function KDSApp() {
         // Sync favicon on initial load
         updateFavicon(s.app_logo);
       }
+      if (s.sound_new_order) setSoundNewConfig(s.sound_new_order);
+      if (s.sound_delayed) setSoundDelayedConfig(s.sound_delayed);
+      if (s.sound_complete) setSoundCompleteConfig(s.sound_complete);
+      if (s.sound_item_ready) setSoundItemReadyConfig(s.sound_item_ready);
+
+      updateSoundConfig({
+        new_order: (s.sound_new_order as any) || 'new_order',
+        delayed: (s.sound_delayed as any) || 'delayed',
+        complete: (s.sound_complete as any) || 'complete',
+        item_ready: (s.sound_item_ready as any) || 'item_ready',
+      });
     });
   }, []);
 
@@ -231,6 +270,10 @@ export default function KDSApp() {
     await api.patch('/api/settings', {
       app_name: appNameConfig,
       app_logo: appLogoConfig,
+      sound_new_order: soundNewConfig,
+      sound_delayed: soundDelayedConfig,
+      sound_complete: soundCompleteConfig,
+      sound_item_ready: soundItemReadyConfig,
     });
     setAppName(appNameConfig);
     setAppLogo(appLogoConfig);
