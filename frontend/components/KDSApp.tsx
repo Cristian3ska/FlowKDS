@@ -588,7 +588,7 @@ export default function KDSApp() {
             className={`station-tab ${selectedStation === 'all' ? 'active' : ''}`}
             onClick={() => setSelectedStation('all')}
           >
-            <span className="station-tab__dot" style={{ background: '#6366f1' }} />
+            <span className="station-tab__dot" style={{ background: 'var(--accent)' }} />
             Todas
           </button>
 

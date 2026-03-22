@@ -1,6 +1,6 @@
 'use client';
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { Plus, Minus, X, Send, Zap, Check, Flame, Snowflake, UtensilsCrossed, ShoppingBag, ChevronRight, Search, DollarSign } from 'lucide-react';
+import { Plus, Minus, X, Send, Zap, Check, Flame, Snowflake, UtensilsCrossed, ShoppingBag, ChevronRight, Search, DollarSign, LayoutGrid } from 'lucide-react';
 import { api } from '@/lib/utils';
 
 // Menu fetched from backend
@@ -66,7 +66,20 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
   const [tableOrders, setTableOrders] = useState<Record<string, TableOrder>>({});
 
   // Category panel
-  const [category, setCategory] = useState<Category>('food');
+  const categoriesList = useMemo(() => {
+    const raw = Array.from(new Set(menuItems.map(i => i.category)));
+    return ['todos', ...(raw.length > 0 ? raw : ['food', 'bar_hot', 'bar_cold'])];
+  }, [menuItems]);
+
+  const getCategoryInfo = (cat: string) => {
+    if (cat === 'todos') return { label: 'Todos', Icon: LayoutGrid, colorVar: 'var(--green)' };
+    if (cat === 'food') return { label: 'Comida', Icon: UtensilsCrossed, colorVar: 'var(--yellow)' };
+    if (cat === 'bar_hot') return { label: 'Caliente', Icon: Flame, colorVar: 'var(--red)' };
+    if (cat === 'bar_cold') return { label: 'Frío', Icon: Snowflake, colorVar: 'var(--accent)' };
+    return { label: cat.charAt(0).toUpperCase() + cat.slice(1), Icon: ShoppingBag, colorVar: 'var(--text-primary)' };
+  };
+
+  const [category, setCategory] = useState<string>('todos');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Item builder (generalized for food & drinks)
@@ -81,7 +94,21 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
   // Table cumulative bill (Now derived from props)
   const tableBills      = useMemo(() => Object.fromEntries(accounts.map(a => [a.table_id, a.total])), [accounts]);
   const tableSentItems  = useMemo(() => Object.fromEntries(accounts.map(a => [a.table_id, a.items])), [accounts]);
+  
   const [showBillModalFor, setShowBillModalFor] = useState<string | null>(null);
+  const [splitMode, setSplitMode] = useState<'total' | 'parts' | 'items'>('total');
+  const [splitParts, setSplitParts] = useState(2);
+  const [selectedItemsCount, setSelectedItemsCount] = useState<Record<number, number>>({});
+
+  const totalBill = showBillModalFor ? (tableBills[showBillModalFor] || 0) : 0;
+  let paymentAmount = totalBill;
+  if (splitMode === 'parts') paymentAmount = totalBill / splitParts;
+  if (splitMode === 'items' && showBillModalFor) {
+    let sum = 0;
+    const items = tableSentItems[showBillModalFor] || [];
+    items.forEach((item: any, idx: number) => sum += (selectedItemsCount[idx] || 0) * (item.price || 0));
+    paymentAmount = sum;
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -97,8 +124,10 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
     }));
   };
 
-  const currentMenu = category === 'food' ? foodItems
-    : category === 'bar_hot'  ? hotDrinks : coldDrinks;
+  const currentMenu = useMemo(() => {
+    if (category === 'todos') return menuItems;
+    return menuItems.filter(item => item.category === category);
+  }, [menuItems, category]);
 
   const filteredMenu = currentMenu.filter(item => 
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -414,28 +443,28 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
           </div>
 
           {/* Category tabs */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.35rem', marginTop: '0.25rem' }}>
-            {([
-              { key: 'food',     label: 'Comida',   Icon: UtensilsCrossed, color: '#f59e0b' },
-              { key: 'bar_hot',  label: 'Caliente', Icon: Flame,           color: '#ef4444' },
-              { key: 'bar_cold', label: 'Frío',     Icon: Snowflake,       color: '#06b6d4' },
-            ] as const).map(({ key, label, Icon, color }) => (
-              <button
-                key={key}
-                onClick={() => { setCategory(key); setSelectedItem(null); setSearchTerm(''); }}
-                className={`btn btn--sm ${category === key ? '' : 'btn--ghost'}`}
-                style={{
-                  flexDirection: 'column', gap: '0.15rem', height: '46px',
-                  background:  category === key ? `${color}22` : undefined,
-                  borderColor: category === key ? color : undefined,
-                  color:       category === key ? color : undefined,
-                  fontSize: '0.68rem',
-                }}
-              >
-                <Icon size={13} />
-                {label}
-              </button>
-            ))}
+          <div className="no-scrollbar" style={{ display: 'flex', gap: '0.35rem', marginTop: '0.25rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+            {categoriesList.map(cat => {
+              const info = getCategoryInfo(cat);
+              const isSelected = category === cat;
+              return (
+                <button
+                  key={cat}
+                  onClick={() => { setCategory(cat); setSelectedItem(null); setSearchTerm(''); }}
+                  className={`btn btn--sm ${isSelected ? '' : 'btn--ghost'}`}
+                  style={{
+                    flexDirection: 'column', gap: '0.15rem', height: '46px', flex: '0 0 auto', minWidth: '70px',
+                    background:  isSelected ? `color-mix(in srgb, ${info.colorVar} 15%, transparent)` : undefined,
+                    borderColor: isSelected ? info.colorVar : undefined,
+                    color:       isSelected ? info.colorVar : 'var(--text-muted)',
+                    fontSize: '0.68rem',
+                  }}
+                >
+                  <info.Icon size={13} />
+                  {info.label}
+                </button>
+              );
+            })}
           </div>
 
           {/* Search bar */}
@@ -691,36 +720,111 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
             </div>
 
             {/* Total and Actions */}
-            <div style={{ padding: '1.25rem', borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.15rem', fontWeight: 800, marginBottom: '1.5rem' }}>
-                <span>Total a Pagar</span>
-                <span style={{ color: 'var(--green, #22c55e)' }}>${(tableBills[showBillModalFor] || 0).toFixed(2)}</span>
+            <div style={{ padding: '0', borderTop: '1px solid var(--border)', background: 'var(--bg-secondary)' }}>
+              {/* Split controls */}
+              <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: splitMode === 'total' ? 0 : '1rem' }}>
+                  <button className={`btn btn--sm ${splitMode === 'total' ? 'btn--primary' : 'btn--ghost'}`} style={{flex:1}} onClick={() => setSplitMode('total')}>Total</button>
+                  <button className={`btn btn--sm ${splitMode === 'parts' ? 'btn--primary' : 'btn--ghost'}`} style={{flex:1}} onClick={() => setSplitMode('parts')}>Dividir</button>
+                  <button className={`btn btn--sm ${splitMode === 'items' ? 'btn--primary' : 'btn--ghost'}`} style={{flex:1}} onClick={() => setSplitMode('items')}>Consumo</button>
+                </div>
+
+                {splitMode === 'parts' && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-main)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                     <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Número de personas:</span>
+                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                       <button className="btn btn--secondary btn--sm btn--icon" onClick={() => setSplitParts(Math.max(2, splitParts - 1))}><Minus size={14}/></button>
+                       <span style={{ fontWeight: 800, minWidth: '2rem', textAlign: 'center' }}>{splitParts}</span>
+                       <button className="btn btn--secondary btn--sm btn--icon" onClick={() => setSplitParts(splitParts + 1)}><Plus size={14}/></button>
+                     </div>
+                  </div>
+                )}
+
+                {splitMode === 'items' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '40vh', overflowY: 'auto' }}>
+                     {(tableSentItems[showBillModalFor!] as OrderItem[])?.map((item, idx) => {
+                        const sel = selectedItemsCount[idx] || 0;
+                        const max = item.quantity;
+                        if (max <= 0) return null;
+                        return (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                             <div style={{ flex: 1, minWidth: 0, paddingRight: '0.5rem' }}>
+                               <div style={{ fontWeight: 600, fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>${(item.price||0).toFixed(2)} c/u</div>
+                             </div>
+                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '99px', padding: '0.15rem', border: '1px solid var(--border)' }}>
+                               <button 
+                                 className="btn btn--ghost btn--sm btn--icon" 
+                                 style={{ padding: '0.15rem', width: '24px', height: '24px', borderRadius: '50%' }}
+                                 onClick={() => setSelectedItemsCount(p => ({ ...p, [idx]: Math.max(0, sel - 1) }))}
+                               >
+                                 <Minus size={12}/>
+                               </button>
+                               <span style={{ fontWeight: 800, minWidth: '1.2rem', textAlign: 'center', fontSize: '0.8rem' }}>{sel}</span>
+                               <button 
+                                 className="btn btn--ghost btn--sm btn--icon" 
+                                 style={{ padding: '0.15rem', width: '24px', height: '24px', borderRadius: '50%' }}
+                                 disabled={sel >= max}
+                                 onClick={() => setSelectedItemsCount(p => ({ ...p, [idx]: Math.min(max, sel + 1) }))}
+                               >
+                                 <Plus size={12}/>
+                               </button>
+                             </div>
+                          </div>
+                        );
+                     })}
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
-                <button 
-                  className="btn btn--ghost" 
-                  style={{ flex: 1, fontWeight: 600 }} 
-                  onClick={() => setShowBillModalFor(null)}
-                >
-                  Cancelar
-                </button>
-                <button 
-                  className="btn btn--success" 
-                  style={{ flex: 1, fontWeight: 600 }} 
-                  onClick={async () => {
-                     if (!showBillModalFor) return;
-                     try {
-                       await api.delete(`/api/accounts/${showBillModalFor}`);
-                       setShowBillModalFor(null);
-                       if (activeTable === showBillModalFor) setActiveTable(null);
-                     } catch (err) {
-                       console.error(err);
-                       alert('Error al cerrar la cuenta');
-                     }
-                  }}
-                >
-                  Cobrar y Cerrar
-                </button>
+
+              <div style={{ padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.15rem', fontWeight: 800, marginBottom: '1.5rem' }}>
+                  <span>{splitMode === 'total' ? 'Total' : 'Pago Parcial'}</span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ color: 'var(--green, #22c55e)' }}>${Math.min(totalBill, Math.max(0, paymentAmount)).toFixed(2)}</div>
+                    {splitMode !== 'total' && paymentAmount < totalBill && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Restante: ${(totalBill - paymentAmount).toFixed(2)}</div>}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button 
+                    className="btn btn--ghost" 
+                    style={{ flex: 1, fontWeight: 600 }} 
+                    onClick={() => {
+                      setShowBillModalFor(null);
+                      setSplitMode('total');
+                      setSelectedItemsCount({});
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button 
+                    className="btn btn--success" 
+                    style={{ flex: 1, fontWeight: 600 }} 
+                    disabled={paymentAmount <= 0.01 || paymentAmount > totalBill}
+                    onClick={async () => {
+                       if (!showBillModalFor) return;
+                       try {
+                         await api.post(`/api/accounts/${showBillModalFor}/pay`, { 
+                           amount: paymentAmount,
+                           paidItemsIndices: splitMode === 'items' ? selectedItemsCount : undefined
+                         });
+                         if (paymentAmount >= totalBill - 0.01) {
+                           setShowBillModalFor(null);
+                           if (activeTable === showBillModalFor) setActiveTable(null);
+                         } else {
+                           setSplitMode('total');
+                           setSelectedItemsCount({});
+                         }
+                       } catch (err) {
+                         console.error(err);
+                         alert('Error al cobrar la cuenta');
+                       }
+                    }}
+                  >
+                    Cobrar ${(Math.min(totalBill, Math.max(0, paymentAmount))).toFixed(2)}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

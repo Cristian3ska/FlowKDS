@@ -136,6 +136,41 @@ app.delete('/api/accounts/:tableId', (req, res) => {
   res.status(204).send();
 });
 
+// POST pay partial or full amount
+app.post('/api/accounts/:tableId/pay', (req, res) => {
+  const { amount, paidItemsIndices } = req.body;
+  const tableId = req.params.tableId;
+  const existing = db.prepare('SELECT * FROM table_accounts WHERE table_id = ?').get(tableId);
+  if (!existing) return res.status(404).json({ error: 'Account not found' });
+  
+  let updatedItemsStr = existing.items;
+  if (paidItemsIndices && typeof paidItemsIndices === 'object') {
+     let itemsList = [];
+     try { itemsList = JSON.parse(existing.items || '[]'); } catch(e){}
+     Object.keys(paidItemsIndices).forEach(idxStr => {
+        const idx = parseInt(idxStr);
+        const qtyToSubtract = paidItemsIndices[idxStr];
+        if (itemsList[idx] && itemsList[idx].quantity >= qtyToSubtract) {
+           itemsList[idx].quantity -= qtyToSubtract;
+        }
+     });
+     itemsList = itemsList.filter(i => i.quantity > 0);
+     updatedItemsStr = JSON.stringify(itemsList);
+  }
+
+  const newTotal = existing.total - amount;
+  if (newTotal <= 0.01 || (paidItemsIndices && Object.keys(paidItemsIndices).length > 0 && JSON.parse(updatedItemsStr).length === 0)) {
+    db.prepare('DELETE FROM table_accounts WHERE table_id = ?').run(tableId);
+  } else {
+    db.prepare('UPDATE table_accounts SET total = ?, items = ? WHERE table_id = ?').run(newTotal, updatedItemsStr, tableId);
+  }
+  
+  const allAccounts = db.prepare('SELECT * FROM table_accounts').all()
+    .map(a => ({ ...a, items: JSON.parse(a.items || '[]') }));
+  io.emit('accounts:updated', allAccounts);
+  res.json({ success: true, remaining: newTotal > 0 ? newTotal : 0 });
+});
+
 // POST create a new ticket (from POS)
 app.post('/api/tickets', (req, res) => {
   const { order_number, table_number, order_type, station, priority, notes, items } = req.body;

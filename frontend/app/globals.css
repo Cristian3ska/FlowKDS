@@ -196,9 +196,10 @@ h3 { font-size: 1rem; font-weight: 600; }
 }
 
 .station-tab.active {
-  background: rgba(99,102,241,0.2);
-  border-color: rgba(99,102,241,0.5);
+  background: var(--accent-glow);
+  border-color: var(--accent);
   color: var(--accent);
+  font-weight: 800;
 }
 
 .station-tab__dot {
