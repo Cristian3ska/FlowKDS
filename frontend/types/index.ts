@@ -25,6 +25,7 @@ export interface Ticket {
   station: StationId;
   status: TicketStatus;
   priority: number;
+  manual_order?: number;
   created_at: number;
   started_at?: number;
   completed_at?: number;

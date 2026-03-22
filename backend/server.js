@@ -48,7 +48,7 @@ function getTickets(station = 'all') {
     ticketRows = db.prepare(`
       SELECT * FROM tickets
       WHERE status NOT IN ('completed')
-      ORDER BY priority DESC, created_at ASC
+      ORDER BY priority DESC, manual_order ASC, created_at ASC
     `).all();
   } else {
     ticketRows = db.prepare(`
@@ -56,7 +56,7 @@ function getTickets(station = 'all') {
       INNER JOIN ticket_items ti ON ti.ticket_id = t.id
       WHERE t.status NOT IN ('completed')
         AND (ti.station = ? OR ti.station = 'all')
-      ORDER BY t.priority DESC, t.created_at ASC
+      ORDER BY t.priority DESC, t.manual_order ASC, t.created_at ASC
     `).all(station);
   }
 
@@ -190,6 +190,29 @@ app.post('/api/tickets', (req, res) => {
 
   io.emit('ticket:new', fullTicket);
   res.status(201).json(fullTicket);
+});
+
+// POST reorder tickets manually (Drag & Drop)
+app.post('/api/tickets/reorder', (req, res) => {
+  const { ticketIds } = req.body;
+  if (!Array.isArray(ticketIds)) return res.status(400).json({ error: 'ticketIds array required' });
+
+  try {
+    const stmt = db.prepare('UPDATE tickets SET manual_order = ? WHERE id = ?');
+    const updateOrder = db.transaction((ids) => {
+      ids.forEach((id, index) => {
+        stmt.run(index, id);
+      });
+    });
+    updateOrder(ticketIds);
+    
+    // Broadcast completely initialized list to ALL stations so they sync the manual sort
+    io.emit('tickets:init', getTickets('all'));
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // POST reset all ticket/analytics data (ROOT ONLY)

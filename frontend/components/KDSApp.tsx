@@ -4,7 +4,7 @@ import {
   ChefHat, Wifi, WifiOff, Bell, BellOff, BarChart2,
   PanelRightClose, PanelRightOpen, ClipboardList, Flame,
   CheckSquare, Zap, Timer, MonitorPlay, ListOrdered, History,
-  Circle, X, UtensilsCrossed, Snowflake, CupSoda, Settings as SettingsIcon, ImagePlus, Save, Crop, ZoomIn, Users, LogOut, Trash2, AlertTriangle
+  Circle, X, UtensilsCrossed, Snowflake, CupSoda, Settings as SettingsIcon, ImagePlus, Save, Crop, ZoomIn, Users, LogOut, Trash2, AlertTriangle, Sun, Moon
 } from 'lucide-react';
 import { useRef } from 'react';
 import { Ticket, Station } from '@/types';
@@ -53,7 +53,7 @@ const LoginScreen = ({ onLogin, appLogo }: { onLogin: (user: any) => void, appLo
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-main)', color: 'white' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}>
       <form onSubmit={handleSubmit} style={{ 
         background: 'var(--bg-card)', padding: '2.5rem 2rem', borderRadius: '16px', 
         width: '100%', maxWidth: '360px', display: 'flex', flexDirection: 'column', gap: '1.25rem',
@@ -72,7 +72,7 @@ const LoginScreen = ({ onLogin, appLogo }: { onLogin: (user: any) => void, appLo
           <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800 }}>Iniciar Sesión</h2>
         </div>
 
-        {error && <div style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5', padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem', textAlign: 'center', border: '1px solid rgba(239,68,68,0.3)' }}>{error}</div>}
+        {error && <div style={{ background: 'var(--red-bg)', color: 'var(--red)', padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem', textAlign: 'center', border: '1px solid var(--red-border)' }}>{error}</div>}
 
         <div className="form-group" style={{ margin: 0 }}>
           <label className="form-label" style={{ fontSize: '0.8rem' }}>Usuario</label>
@@ -138,6 +138,29 @@ export default function KDSApp() {
 
   // Hook reads redThreshold via ref internally — passes the latest value on each render
   const { tickets, setTickets, accounts, setAccounts, connected, socket } = useKDSSocket(soundEnabled, redThreshold);
+
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('kds-theme');
+      if (saved === 'light') {
+        setTheme('light');
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    localStorage.setItem('kds-theme', next);
+    if (next === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  };
 
   useEffect(() => {
     if (!socket) return;
@@ -233,10 +256,59 @@ export default function KDSApp() {
       if (sortMode === 'priority') {
         if (b.priority !== a.priority) return b.priority - a.priority;
       }
-      return a.created_at - b.created_at;
+      return (a.manual_order || 0) - (b.manual_order || 0) || a.created_at - b.created_at;
     });
     return result;
   }, [tickets, selectedStation, filterStatus, sortMode]);
+
+  const [dragOverTicketId, setDragOverTicketId] = useState<string | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragEnd = () => {
+    setDragOverTicketId(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (dragOverTicketId !== id) setDragOverTicketId(id);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOverTicketId(null);
+    const draggedId = e.dataTransfer.getData('text/plain');
+    if (!draggedId || draggedId === targetId) return;
+
+    const newOrder = [...filteredTickets];
+    const sourceIndex = newOrder.findIndex(t => t.id === draggedId);
+    const destIndex = newOrder.findIndex(t => t.id === targetId);
+    
+    if (sourceIndex > -1 && destIndex > -1) {
+      const [draggedItem] = newOrder.splice(sourceIndex, 1);
+      newOrder.splice(destIndex, 0, draggedItem);
+      
+      // Optimistic sorting
+      setTickets(prev => prev.map(t => {
+        const found = newOrder.find(n => n.id === t.id);
+        if (found) return { ...t, manual_order: newOrder.indexOf(found) };
+        return t;
+      }));
+
+      try {
+        await api.post('/api/tickets/reorder', { ticketIds: newOrder.map(t => t.id) });
+      } catch (err) {
+        console.error('Reorder error', err);
+      }
+    }
+  };
 
   const handleTicketUpdated = useCallback((updated: Ticket) => {
     setTickets(prev => prev.map(t => t.id === updated.id ? updated : t));
@@ -414,15 +486,15 @@ export default function KDSApp() {
         {/* Status counters */}
         <div className="kds-header__center hide-on-mobile">
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <span style={{ padding: '0.3rem 0.75rem', background: 'rgba(99,102,241,0.15)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ padding: '0.3rem 0.75rem', background: 'var(--accent-glow)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--accent)', border: '1px solid var(--accent-glow)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <ClipboardList size={12} />
               {pendingCount} pendiente{pendingCount !== 1 ? 's' : ''}
             </span>
-            <span style={{ padding: '0.3rem 0.75rem', background: 'rgba(245,158,11,0.15)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: '#fcd34d', border: '1px solid rgba(245,158,11,0.3)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ padding: '0.3rem 0.75rem', background: 'var(--yellow-bg)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--yellow)', border: '1px solid var(--yellow-border)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <Flame size={12} />
               {inProgressCount} en proceso
             </span>
-            <span style={{ padding: '0.3rem 0.75rem', background: 'rgba(34,197,94,0.15)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: '#86efac', border: '1px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+            <span style={{ padding: '0.3rem 0.75rem', background: 'var(--green-bg)', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 700, color: 'var(--green)', border: '1px solid var(--green-border)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <CheckSquare size={12} />
               {readyCount} listo{readyCount !== 1 ? 's' : ''}
             </span>
@@ -525,9 +597,9 @@ export default function KDSApp() {
             className={`station-tab ${selectedStation === 'food' ? 'active' : ''}`}
             onClick={() => setSelectedStation('food')}
             style={selectedStation === 'food' ? {
-              background: 'rgba(245,158,11,0.15)',
-              borderColor: 'rgba(245,158,11,0.5)',
-              color: '#fcd34d',
+              background: 'var(--yellow-bg)',
+              borderColor: 'var(--yellow-border)',
+              color: 'var(--yellow)',
             } : {}}
           >
             <UtensilsCrossed size={13} style={{ opacity: 0.8 }} />
@@ -543,7 +615,7 @@ export default function KDSApp() {
             onClick={() => setSelectedStation('bar')}
             style={
               (selectedStation === 'bar' || selectedStation === 'bar_hot' || selectedStation === 'bar_cold')
-                ? { background: 'rgba(139,92,246,0.15)', borderColor: 'rgba(139,92,246,0.5)', color: '#c4b5fd' }
+                ? { background: 'var(--accent-glow)', borderColor: 'var(--accent-glow)', color: 'var(--accent)' }
                 : {}
             }
           >
@@ -560,9 +632,9 @@ export default function KDSApp() {
               className={`btn btn--sm ${selectedStation === 'bar' ? '' : 'btn--ghost'}`}
               style={{
                 fontSize: '0.72rem', gap: '0.3rem',
-                background:  selectedStation === 'bar' ? 'rgba(139,92,246,0.2)' : undefined,
-                borderColor: selectedStation === 'bar' ? 'rgba(139,92,246,0.5)' : undefined,
-                color:       selectedStation === 'bar' ? '#c4b5fd' : undefined,
+                background:  selectedStation === 'bar' ? 'var(--accent-glow)' : undefined,
+                borderColor: selectedStation === 'bar' ? 'var(--accent-glow)' : undefined,
+                color:       selectedStation === 'bar' ? 'var(--accent)' : undefined,
               }}
             >
               <CupSoda size={11} /> Todas Barra
@@ -572,9 +644,9 @@ export default function KDSApp() {
               className={`btn btn--sm ${selectedStation === 'bar_hot' ? '' : 'btn--ghost'}`}
               style={{
                 fontSize: '0.72rem', gap: '0.3rem',
-                background:  selectedStation === 'bar_hot' ? 'rgba(239,68,68,0.15)' : undefined,
-                borderColor: selectedStation === 'bar_hot' ? 'rgba(239,68,68,0.4)' : undefined,
-                color:       selectedStation === 'bar_hot' ? '#fca5a5' : undefined,
+                background:  selectedStation === 'bar_hot' ? 'var(--red-bg)' : undefined,
+                borderColor: selectedStation === 'bar_hot' ? 'var(--red-border)' : undefined,
+                color:       selectedStation === 'bar_hot' ? 'var(--red)' : undefined,
               }}
             >
               <Flame size={11} /> Calientes
@@ -584,9 +656,9 @@ export default function KDSApp() {
               className={`btn btn--sm ${selectedStation === 'bar_cold' ? '' : 'btn--ghost'}`}
               style={{
                 fontSize: '0.72rem', gap: '0.3rem',
-                background:  selectedStation === 'bar_cold' ? 'rgba(6,182,212,0.15)' : undefined,
-                borderColor: selectedStation === 'bar_cold' ? 'rgba(6,182,212,0.4)' : undefined,
-                color:       selectedStation === 'bar_cold' ? '#67e8f9' : undefined,
+                background:  selectedStation === 'bar_cold' ? 'var(--accent-glow)' : undefined,
+                borderColor: selectedStation === 'bar_cold' ? 'var(--accent-glow)' : undefined,
+                color:       selectedStation === 'bar_cold' ? 'var(--accent)' : undefined,
               }}
             >
               <Snowflake size={11} /> Frías
@@ -652,15 +724,30 @@ export default function KDSApp() {
           ) : (
             <div className="tickets-grid">
               {filteredTickets.map(ticket => (
-                <TicketCard
+                <div
                   key={ticket.id}
-                  ticket={ticket}
-                  onUpdated={handleTicketUpdated}
-                  onCompleted={handleTicketCompleted}
-                  yellowThreshold={yellowThreshold}
-                  redThreshold={redThreshold}
-                  selectedStation={selectedStation}
-                />
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, ticket.id)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => handleDragOver(e, ticket.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, ticket.id)}
+                  style={{
+                    opacity: dragOverTicketId === ticket.id ? 0.6 : 1,
+                    transform: dragOverTicketId === ticket.id ? 'scale(0.98)' : 'none',
+                    transition: 'all 0.1s ease',
+                    cursor: 'grab'
+                  }}
+                >
+                  <TicketCard
+                    ticket={ticket}
+                    onUpdated={handleTicketUpdated}
+                    onCompleted={handleTicketCompleted}
+                    yellowThreshold={yellowThreshold}
+                    redThreshold={redThreshold}
+                    selectedStation={selectedStation}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -904,6 +991,36 @@ export default function KDSApp() {
                       </div>
                     )}
                   </div>
+                  <div className="form-group" style={{ marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                       <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Tema de la Aplicación</h4>
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                      <button 
+                        className={`btn ${theme === 'dark' ? 'btn--primary' : 'btn--ghost'}`}
+                        onClick={() => {
+                          setTheme('dark');
+                          localStorage.setItem('kds-theme', 'dark');
+                          document.documentElement.removeAttribute('data-theme');
+                        }}
+                        style={{ flex: 1 }}
+                      >
+                        <Moon size={16} /> Modo Oscuro
+                      </button>
+                      <button 
+                        className={`btn ${theme === 'light' ? 'btn--primary' : 'btn--ghost'}`}
+                        onClick={() => {
+                          setTheme('light');
+                          localStorage.setItem('kds-theme', 'light');
+                          document.documentElement.setAttribute('data-theme', 'light');
+                        }}
+                        style={{ flex: 1 }}
+                      >
+                        <Sun size={16} /> Modo Claro
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="form-group" style={{ marginTop: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
                        <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Sonidos de Notificación</h4>

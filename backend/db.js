@@ -130,6 +130,7 @@ const init = () => {
 
   try { db.exec("ALTER TABLE menu_items ADD COLUMN price REAL DEFAULT 0.0"); } catch (e) { /* ignore if exists */ }
   try { db.exec("ALTER TABLE ticket_items ADD COLUMN price REAL DEFAULT 0.0"); } catch (e) { /* ignore if exists */ }
+  try { db.exec("ALTER TABLE tickets ADD COLUMN manual_order INTEGER DEFAULT 0"); } catch (e) { /* ignore if exists */ }
 };
 
 init();
