@@ -138,7 +138,7 @@ export default function AnalyticsPage({ onBack }: Props) {
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        label={({ station, percent }) => `${STATION_LABELS[station] || station} ${(percent * 100).toFixed(0)}%`}
+                        label={({ station, percent }: any) => `${STATION_LABELS[station] || station} ${(percent * 100).toFixed(0)}%`}
                         labelLine={false}
                       >
                         {stationPerf.map((entry) => (
@@ -203,7 +203,7 @@ export default function AnalyticsPage({ onBack }: Props) {
                   <YAxis tick={{ fill: 'var(--text-muted)', fontSize: 11 }} unit="m" />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    formatter={(v: number) => [`${v} min`, 'Tiempo Prep.']}
+                    formatter={(v: any) => [`${v} min`, 'Tiempo Prep.']}
                   />
                   <Line type="monotone" dataKey="prep" stroke="#06b6d4" strokeWidth={2} dot={false} name="Tiempo Prep. (min)" />
                 </LineChart>
