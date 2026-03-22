@@ -504,11 +504,11 @@ export default function KDSApp() {
               <ChefHat size={18} color="white" strokeWidth={2} />
             )}
           </div>
-          <div>
-            <div className="kds-header__title">{appName}</div>
-            {(!appLogo && appName === 'Flow KDS') && (
-              <div className="kds-header__subtitle">Kitchen Display System</div>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div className="kds-header__title" style={{ lineHeight: '1.2' }}>{appName}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '-0.1rem' }}>
+              ¡Hola, <strong>{currentUser?.username}</strong>!
+            </div>
           </div>
         </div>
 
