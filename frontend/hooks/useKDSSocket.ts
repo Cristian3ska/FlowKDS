@@ -65,7 +65,12 @@ export function useKDSSocket(soundEnabled: boolean, redThreshold = 600) {
   }, []);
 
   useEffect(() => {
-    const socket = io(API_URL, { transports: ['websocket', 'polling'] });
+    if (socketRef.current) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('kds-token') : null;
+    const socket: Socket = io(API_URL, {
+      auth: { token },
+      transports: ['websocket', 'polling']
+    });
     socketRef.current = socket;
 
     socket.on('connect', () => setConnected(true));

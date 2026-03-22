@@ -44,6 +44,13 @@ const LoginScreen = ({ onLogin, appLogo }: { onLogin: (user: any) => void, appLo
     setLoading(true);
     try {
       const res = await api.post('/api/auth/login', { username, password });
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      if (res.token) {
+        localStorage.setItem('kds-token', res.token);
+      }
       onLogin(res.user);
     } catch (err: any) {
       setError(err.message || 'Usuario o contraseña incorrectos');
@@ -591,6 +598,7 @@ export default function KDSApp() {
             className="btn btn--ghost btn--icon btn--sm hide-on-mobile"
             style={{ color: 'var(--red)' }}
             onClick={() => {
+              localStorage.removeItem('kds-token');
               setCurrentUser(null);
               setView('kds');
             }}
@@ -1156,6 +1164,7 @@ export default function KDSApp() {
                     className="btn btn--ghost btn--sm show-on-mobile width-100-mobile" 
                     style={{ color: 'var(--red)', border: '1px solid rgba(239,68,68,0.2)' }}
                     onClick={() => {
+                      localStorage.removeItem('kds-token');
                       setCurrentUser(null);
                       setView('kds');
                       setShowSettingsModal(false);

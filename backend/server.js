@@ -40,6 +40,42 @@ app.use(globalLimiter);
 app.use(cors());
 app.use(express.json());
 
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'flow_kds_super_secret_local_key_84912';
+
+// ─── Token Authentication Middleware ─────────────────────────────────────────
+app.use('/api', (req, res, next) => {
+  // Endpoints públicos básicos para el login
+  if (req.path.startsWith('/auth/login') || req.path.startsWith('/logo') || req.path.startsWith('/settings') || req.path.startsWith('/stations')) {
+    return next();
+  }
+  
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Acceso denegado: Token requerido' });
+  }
+
+  try {
+    const token = authHeader.split(' ')[1];
+    req.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Sesión expirada o token inválido' });
+  }
+});
+
+// ─── Socket.IO Auth Middleware ─────────────────────────────────────────────
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) return next(new Error('Authentication error'));
+  try {
+    socket.user = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch (err) {
+    next(new Error('Invalid token'));
+  }
+});
+
 // ─── Helper functions ──────────────────────────────────────────────────────────
 
 function getTickets(station = 'all') {
@@ -657,7 +693,8 @@ app.post('/api/auth/login', loginLimiter, (req, res) => {
   }
 
   delete user.password;
-  res.json({ success: true, user });
+  const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+  res.json({ success: true, user, token });
 });
 
 app.get('/api/users', (req, res) => {

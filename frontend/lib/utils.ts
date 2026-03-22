@@ -2,18 +2,36 @@ import { AlertLevel, Ticket } from '@/types';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+const getAuthHeaders = (): Record<string, string> => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('kds-token') : null;
+  return token 
+    ? { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    : { 'Content-Type': 'application/json' };
+};
+
+const handleResponse = async (r: Response) => {
+  if (r.status === 401 && typeof window !== 'undefined') {
+    // Si la respuesta 401 no es del login en sí, significa que la sesión caducó o es legada
+    if (!r.url.includes('/api/auth/login')) {
+      localStorage.removeItem('kds-token');
+      localStorage.removeItem('kds-user');
+      window.location.reload();
+      return new Promise(() => {}); // Pause execution indefinitely while reloading
+    }
+  }
+  if (r.status === 204) return {};
+  return r.json();
+};
+
 export const api = {
-  get: (path: string) => fetch(`${API}${path}`).then(r => r.json()),
-  post: (path: string, body: unknown) =>
-    fetch(`${API}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
+  get: (path: string) => fetch(`${API}${path}`, { headers: getAuthHeaders() }).then(handleResponse),
+  post: (path: string, body: unknown = {}) =>
+    fetch(`${API}${path}`, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(body) }).then(handleResponse),
   put: (path: string, body: unknown) =>
-    fetch(`${API}${path}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
+    fetch(`${API}${path}`, { method: 'PUT', headers: getAuthHeaders(), body: JSON.stringify(body) }).then(handleResponse),
   patch: (path: string, body: unknown) =>
-    fetch(`${API}${path}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(r => r.json()),
-  delete: (path: string) => fetch(`${API}${path}`, { method: 'DELETE' }).then(r => {
-    if (r.status === 204) return {};
-    return r.json();
-  }),
+    fetch(`${API}${path}`, { method: 'PATCH', headers: getAuthHeaders(), body: JSON.stringify(body) }).then(handleResponse),
+  delete: (path: string) => fetch(`${API}${path}`, { method: 'DELETE', headers: getAuthHeaders() }).then(handleResponse),
 };
 
 export function getAlertLevel(ticket: Ticket, yellowThreshold = 300, redThreshold = 600): AlertLevel {
