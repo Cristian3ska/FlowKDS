@@ -13,8 +13,11 @@ interface MenuItem {
 
 export default function MenuManager({ onBack }: { onBack: () => void }) {
   const [items, setItems] = useState<MenuItem[]>([]);
+  const [stations, setStations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'food' | 'drink'>('all');
+  const [selectedStationId, setSelectedStationId] = useState<string>('all');
   
   // Modal / Form state
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -23,30 +26,49 @@ export default function MenuManager({ onBack }: { onBack: () => void }) {
   const [price, setPrice] = useState(0);
   const [modifiers, setModifiers] = useState<string[]>([]);
   const [modInput, setModInput] = useState('');
+  const [isCombo, setIsCombo] = useState(false);
+  const [groupName, setGroupName] = useState('');
 
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchItems();
-  }, []);
-
-  const fetchItems = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
-      const data = await api.get('/api/menu');
-      setItems(data);
+      const [menuData, statData] = await Promise.all([
+        api.get('/api/menu'),
+        api.get('/api/stations')
+      ]);
+      setItems(menuData);
+      setStations(statData.filter((s: any) => s.id !== 'all'));
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchItems = async () => {
+    const data = await api.get('/api/menu');
+    setItems(data);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    setSelectedStationId('all');
+  }, [filterType]);
+
   const openNew = () => {
     setEditingId(0);
     setName('');
-    setCategory('food');
+    setCategory(stations[0]?.id || 'food');
     setPrice(0);
     setModifiers([]);
     setModInput('');
+    setIsCombo(false);
+    setGroupName('');
   };
 
   const openEdit = (item: MenuItem) => {
@@ -56,14 +78,21 @@ export default function MenuManager({ onBack }: { onBack: () => void }) {
     setPrice(item.price || 0);
     setModifiers(item.modifiers);
     setModInput('');
+    setIsCombo(false);
+    setGroupName('');
   };
 
   const closeForm = () => {
     setEditingId(null);
+    setIsCombo(false);
+    setGroupName('');
   };
 
   const addModifier = () => {
-    const val = modInput.trim();
+    let val = modInput.trim();
+    if (isCombo && groupName.trim()) {
+      val = `COMBO_${groupName.trim()}:${val}`;
+    }
     if (val && !modifiers.includes(val)) {
       setModifiers([...modifiers, val]);
       setModInput('');
@@ -97,28 +126,35 @@ export default function MenuManager({ onBack }: { onBack: () => void }) {
     setItems(items.filter(i => i.id !== id));
   };
 
-  const stationIcon = (st: string) =>
-    st === 'food' ? <UtensilsCrossed size={16} />
-    : st === 'bar_hot' ? <Flame size={16} />
-    : <Snowflake size={16} />;
+  const stationIcon = (stId: string) => {
+    const st = stations.find(s => s.id === stId);
+    if (!st || st.type === 'food') return <UtensilsCrossed size={16} />;
+    return <Snowflake size={16} />;
+  };
 
-  // Group items by category and filter by search term
-  const filteredItems = items.filter(i => 
-    i.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-  
-  const foodItems = filteredItems.filter(i => i.category === 'food');
-  const hotDrinks = filteredItems.filter(i => i.category === 'bar_hot');
-  const coldDrinks = filteredItems.filter(i => i.category === 'bar_cold');
+  // Group items by category and filter by search term and type
+  const filteredItems = items.filter(i => {
+    const matchesSearch = i.name.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Find station to check type
+    const st = stations.find(s => s.id === i.category);
+    const matchesType = filterType === 'all' || (st && st.type === filterType);
+    
+    const matchesStation = selectedStationId === 'all' || i.category === selectedStationId;
+    
+    return matchesSearch && matchesType && matchesStation;
+  });
 
-  const renderTable = (list: MenuItem[], title: string, stId: string) => (
-    <div style={{ marginBottom: '2rem' }}>
-      <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: STATION_COLORS[stId], marginBottom: '1rem' }}>
-        {stationIcon(stId)} {title} ({list.length})
+  const renderTable = (list: MenuItem[], station: any) => {
+    const color = station.color || 'var(--primary)';
+    return (
+    <div key={station.id} style={{ marginBottom: '2rem' }}>
+      <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: color, marginBottom: '1rem' }}>
+        {stationIcon(station.id)} {station.label || station.name} ({list.length})
       </h3>
       {list.length === 0 ? (
         <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: '12px' }}>
-          No hay elementos en esta categoría.
+          No hay elementos en esta área.
         </div>
       ) : (
         <div style={{ display: 'grid', gap: '0.5rem' }}>
@@ -126,9 +162,9 @@ export default function MenuManager({ onBack }: { onBack: () => void }) {
             <div key={item.id} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '1rem', background: 'var(--bg-secondary)',
-              border: `1px solid ${STATION_COLORS[stId]}40`,
+              border: `1px solid ${color}40`,
               borderRadius: '12px',
-              borderLeft: `4px solid ${STATION_COLORS[stId]}`
+              borderLeft: `4px solid ${color}`
             }}>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -159,6 +195,7 @@ export default function MenuManager({ onBack }: { onBack: () => void }) {
       )}
     </div>
   );
+  };
 
   return (
     <div style={{ padding: '2rem', height: '100vh', overflowY: 'auto' }}>
@@ -173,24 +210,79 @@ export default function MenuManager({ onBack }: { onBack: () => void }) {
         </button>
       </div>
 
-      <div className="form-group" style={{ marginBottom: '2rem', position: 'relative' }}>
-        <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-        <input 
-          type="text" className="form-input" 
-          placeholder="Buscar platillo o bebida..." 
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          style={{ paddingLeft: '2.8rem' }}
-        />
+      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+        <div className="form-group" style={{ flex: 1, minWidth: '300px', position: 'relative' }}>
+          <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+          <input 
+            type="text" className="form-input" 
+            placeholder="Buscar platillo o bebida..." 
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{ paddingLeft: '2.8rem' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--bg-secondary)', padding: '0.35rem', borderRadius: '10px', height: 'fit-content' }}>
+          <button 
+            onClick={() => setFilterType('all')}
+            className={`btn btn--sm ${filterType === 'all' ? 'active' : 'btn--ghost'}`}
+            style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+          >
+            Todas
+          </button>
+          <button 
+            onClick={() => setFilterType('food')}
+            className={`btn btn--sm ${filterType === 'food' ? 'active' : 'btn--ghost'}`}
+            style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', gap: '0.3rem' }}
+          >
+            <UtensilsCrossed size={12} /> Comida
+          </button>
+          <button 
+            onClick={() => setFilterType('drink')}
+            className={`btn btn--sm ${filterType === 'drink' ? 'active' : 'btn--ghost'}`}
+            style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', gap: '0.3rem' }}
+          >
+            <Flame size={12} /> Bebidas
+          </button>
+        </div>
+      </div>
+
+      <div className="no-scrollbar" style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+        <button 
+          onClick={() => setSelectedStationId('all')}
+          style={{
+            padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600,
+            background: selectedStationId === 'all' ? 'var(--accent)' : 'var(--bg-secondary)',
+            color: selectedStationId === 'all' ? 'white' : 'var(--text-muted)',
+            border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap'
+          }}
+        >
+          Categorías: Todas
+        </button>
+        {stations.filter(s => filterType === 'all' || s.type === filterType).map(st => (
+          <button 
+            key={st.id}
+            onClick={() => setSelectedStationId(st.id)}
+            style={{
+              padding: '0.4rem 0.8rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600,
+              background: selectedStationId === st.id ? (st.color || 'var(--accent)') : 'var(--bg-secondary)',
+              color: selectedStationId === st.id ? 'white' : 'var(--text-muted)',
+              border: `1px solid ${selectedStationId === st.id ? (st.color || 'var(--accent)') : 'var(--border)'}`, 
+              cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap'
+            }}
+          >
+            {st.label || st.name}
+          </button>
+        ))}
       </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>Cargando menú...</div>
       ) : (
         <>
-          {renderTable(foodItems, 'Comida', 'food')}
-          {renderTable(hotDrinks, 'Bebidas Calientes', 'bar_hot')}
-          {renderTable(coldDrinks, 'Bebidas Frías', 'bar_cold')}
+          {stations
+            .filter(st => (filterType === 'all' || st.type === filterType) && (selectedStationId === 'all' || st.id === selectedStationId))
+            .map(st => renderTable(filteredItems.filter(i => i.category === st.id), st))}
         </>
       )}
 
@@ -218,9 +310,9 @@ export default function MenuManager({ onBack }: { onBack: () => void }) {
               <div className="form-group" style={{ flex: 1 }}>
                 <label className="form-label">Estación / Categoría</label>
                 <select className="form-select" value={category} onChange={e => setCategory(e.target.value)}>
-                  <option value="food">Comida 🍴</option>
-                  <option value="bar_hot">Bebida Caliente 🔥</option>
-                  <option value="bar_cold">Bebida Fría ❄️</option>
+                  {stations.map(st => (
+                    <option key={st.id} value={st.id}>{st.label || st.name}</option>
+                  ))}
                 </select>
               </div>
 
@@ -231,16 +323,35 @@ export default function MenuManager({ onBack }: { onBack: () => void }) {
             </div>
 
             <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-              <label className="form-label">Modificadores (Opcional)</label>
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <input 
-                  type="text" className="form-input" 
-                  value={modInput} 
-                  onChange={e => setModInput(e.target.value)} 
-                  onKeyDown={e => e.key === 'Enter' && addModifier()}
-                  placeholder="Ej: Sin cebolla, Extra queso..." 
-                />
-                <button className="btn btn--secondary" onClick={addModifier}>Agregar</button>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                <label className="form-label" style={{ margin: 0 }}>Modificadores / Opciones</label>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', background: 'var(--bg-secondary)', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
+                  Tip: Usa <b>COMBO_Grupo:Opción</b> para grupos obligatorios
+                </div>
+              </div>
+              <div style={{ padding: '0.8rem', background: 'var(--bg-secondary)', borderRadius: '10px', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                  <input type="checkbox" id="isCombo" checked={isCombo} onChange={e => setIsCombo(e.target.checked)} style={{ width: '16px', height: '16px' }} />
+                  <label htmlFor="isCombo" style={{ fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>¿Es una elección obligatoria? (Ej. Paquete o Paso)</label>
+                </div>
+                
+                {isCombo && (
+                  <div className="form-group" style={{ marginBottom: '0.6rem' }}>
+                    <label className="form-label" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Nombre del Grupo / Paso (Ej. "Tipo de Huevo", "Bebida")</label>
+                    <input type="text" className="form-input" style={{ padding: '0.4rem 0.6rem', fontSize: '0.8rem' }} value={groupName} onChange={e => setGroupName(e.target.value)} placeholder='Ej. Paso 1: Huevo' />
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" className="form-input" 
+                    value={modInput} 
+                    onChange={e => setModInput(e.target.value)} 
+                    onKeyDown={e => e.key === 'Enter' && addModifier()}
+                    placeholder={isCombo ? "Nombre de la opción (Ejem: Revueltos)" : "Ej: Sin cebolla, Extra queso..."} 
+                  />
+                  <button className="btn btn--secondary" onClick={addModifier}>Agregar</button>
+                </div>
               </div>
               {modifiers.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', padding: '0.5rem', background: 'var(--bg-secondary)', borderRadius: '8px' }}>

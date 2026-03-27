@@ -22,28 +22,33 @@ export default function AnalyticsPage({ onBack }: Props) {
   const [prepTimes, setPrepTimes] = useState<AnalyticsPrepTime[]>([]);
   const [peakHours, setPeakHours] = useState<PeakHour[]>([]);
   const [stationPerf, setStationPerf] = useState<StationPerformance[]>([]);
+  const [stations, setStations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        const [s, pt, ph, sp] = await Promise.all([
+        const [summ, pt, ph, perf, stData] = await Promise.all([
           api.get('/api/analytics/summary'),
           api.get('/api/analytics/prep-times'),
           api.get('/api/analytics/peak-hours'),
           api.get('/api/analytics/station-performance'),
+          api.get('/api/stations')
         ]);
-        setSummary(s);
+        setSummary(summ);
         setPrepTimes(pt.slice(0, 10));
         setPeakHours(ph);
-        setStationPerf(sp);
+        setStationPerf(perf);
+        setStations(stData);
+      } catch (e) {
+        console.error('Error loading analytics', e);
       } finally {
         setLoading(false);
       }
     };
-    load();
-    const interval = setInterval(load, 30000);
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -138,27 +143,33 @@ export default function AnalyticsPage({ onBack }: Props) {
                         cx="50%"
                         cy="50%"
                         outerRadius={80}
-                        label={({ station, percent }: any) => `${STATION_LABELS[station] || station} ${(percent * 100).toFixed(0)}%`}
+                        label={({ station, percent }: any) => {
+                          const s = stations.find(st => st.id === station);
+                          return `${s?.label || station} ${(percent * 100).toFixed(0)}%`;
+                        }}
                         labelLine={false}
                       >
-                        {stationPerf.map((entry) => (
-                          <Cell key={entry.station} fill={STATION_COLORS[entry.station] || '#6366f1'} />
-                        ))}
+                        {stationPerf.map((entry) => {
+                          const s = stations.find(st => st.id === entry.station);
+                          return <Cell key={entry.station} fill={s?.color || '#6366f1'} />;
+                        })}
                       </Pie>
                       <Tooltip contentStyle={tooltipStyle} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem' }}>
-                    {stationPerf.map(s => (
-                      <div key={s.station} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}>
-                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: STATION_COLORS[s.station] || '#6366f1', flexShrink: 0 }} />
-                        <span style={{ flex: 1, color: 'var(--text-secondary)' }}>{STATION_LABELS[s.station] || s.station}</span>
-                        <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{formatPrepTime(s.avg_seconds)}</span>
-                        {s.delayed_count > 0 && (
-                          <span style={{ color: 'var(--red)', fontSize: '0.7rem' }}>({s.delayed_count} atraso{s.delayed_count > 1 ? 's' : ''})</span>
+                    {stationPerf.map(sp => {
+                      const s = stations.find(st => st.id === sp.station);
+                      return (
+                      <div key={sp.station} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem' }}>
+                        <span style={{ width: 10, height: 10, borderRadius: '50%', background: s?.color || '#6366f1', flexShrink: 0 }} />
+                        <span style={{ flex: 1, color: 'var(--text-secondary)' }}>{s?.label || sp.station}</span>
+                        <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{formatPrepTime(sp.avg_seconds)}</span>
+                        {sp.delayed_count > 0 && (
+                          <span style={{ color: 'var(--red)', fontSize: '0.7rem' }}>({sp.delayed_count} atraso{sp.delayed_count > 1 ? 's' : ''})</span>
                         )}
                       </div>
-                    ))}
+                    );})}
                   </div>
                 </>
               )}

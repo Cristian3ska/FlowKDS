@@ -111,7 +111,7 @@ export default function KDSApp() {
   
   const [view, setView] = useState<View>('kds');
   const [selectedStation, setSelectedStation] = useState<string>('all');
-  const [stations, setStations] = useState<Station[]>([]);
+  const [stations, setStations] = useState<any[]>([]);
   
   const [appName, setAppName] = useState('Flow KDS');
   const [appLogo, setAppLogo] = useState('');
@@ -140,14 +140,36 @@ export default function KDSApp() {
   const [resetAction, setResetAction] = useState<'data' | 'menu' | null>(null);
   const [resetModalPassword, setResetModalPassword] = useState('');
   const [resetLoading, setResetLoading] = useState(false);
-  // Station-specific thresholds stored in state so the hook can read them via ref
+  const [yellowAllConfig, setYellowAllConfig] = useState(300);
+  const [redAllConfig, setRedAllConfig] = useState(600);
   const [redThreshold,    setRedThreshold]    = useState(600);
   const [yellowThreshold, setYellowThreshold] = useState(300);
 
-  // Hook reads redThreshold via ref internally — passes the latest value on each render
   const { tickets, setTickets, accounts, setAccounts, connected, socket } = useKDSSocket(soundEnabled, redThreshold);
 
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  const activeRole = currentUser?.role;
+  const canAccessFull = activeRole === 'root' || activeRole === 'admin';
+
+  // Function to load tickets and stations
+  const loadData = async () => {
+    try { 
+      const [tList, stList] = await Promise.all([
+        api.get('/api/tickets'),
+        api.get('/api/stations')
+      ]);
+      setTickets(tList);
+      setStations(stList);
+    } catch (e) { console.error('Error cargando inicial', e); }
+  };
+
+  useEffect(() => {
+    if (!activeRole) return;
+    loadData();
+    const interval = setInterval(loadData, 15000); // 15s polling for fallback
+    return () => clearInterval(interval);
+  }, [activeRole]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -199,7 +221,7 @@ export default function KDSApp() {
   }, [socket]);
 
   useEffect(() => {
-    api.get('/api/stations').then(setStations);
+    //api.get('/api/stations').then(setStations); // Now handled by loadData
     api.get('/api/settings').then((s) => {
       setSoundEnabled(s.sound_enabled === 'true');
       if (s.app_name) setAppName(s.app_name);
@@ -247,15 +269,25 @@ export default function KDSApp() {
 
   const filteredTickets = useMemo(() => {
     let result = [...tickets];
-    if (selectedStation === 'bar') {
-      // Barra parent: show tickets with any bar item (hot or cold)
-      result = result.filter(t =>
-        t.items.some(i => i.station === 'bar' || i.station === 'bar_hot' || i.station === 'bar_cold')
-      );
-    } else if (selectedStation !== 'all') {
-      result = result.filter(t =>
-        t.items.some(i => i.station === selectedStation || i.station === 'all')
-      );
+    if (selectedStation !== 'all') {
+      if (selectedStation === 'food') {
+        // Group: Show any ticket with at least one 'food' item
+        const foodStationIds = stations.filter(s => s.type === 'food').map(s => s.id);
+        result = result.filter(t =>
+          t.items.some(i => foodStationIds.includes(i.station) || i.station === 'all')
+        );
+      } else if (selectedStation === 'drink') {
+        // Group: Show any ticket with at least one 'drink' item
+        const drinkStationIds = stations.filter(s => s.type === 'drink').map(s => s.id);
+        result = result.filter(t =>
+          t.items.some(i => drinkStationIds.includes(i.station) || i.station === 'all')
+        );
+      } else {
+        // Single station filter
+        result = result.filter(t =>
+          t.items.some(i => i.station === selectedStation || i.station === 'all')
+        );
+      }
     }
     if (filterStatus !== 'all') {
       result = result.filter(t => t.status === filterStatus);
@@ -342,21 +374,37 @@ export default function KDSApp() {
   const openSettings = () => {
     setAppNameConfig(appName);
     setAppLogoConfig(appLogo);
+    const allSt = stations.find(s => s.id === 'all');
+    if (allSt) {
+      setYellowAllConfig(allSt.time_alert_yellow);
+      setRedAllConfig(allSt.time_alert_red);
+    }
     setSettingsTab('system');
     setShowSettingsModal(true);
   };
 
   const handleSaveSettings = async () => {
-    await api.patch('/api/settings', {
-      app_name: appNameConfig,
-      app_logo: appLogoConfig,
-      sound_new_order: soundNewConfig,
-      sound_delayed: soundDelayedConfig,
-      sound_complete: soundCompleteConfig,
-      sound_item_ready: soundItemReadyConfig,
-    });
+    await Promise.all([
+      api.patch('/api/settings', {
+        app_name: appNameConfig,
+        app_logo: appLogoConfig,
+        sound_new_order: soundNewConfig,
+        sound_delayed: soundDelayedConfig,
+        sound_complete: soundCompleteConfig,
+        sound_item_ready: soundItemReadyConfig,
+      }),
+      api.put('/api/stations/all', {
+        name: 'Todas',
+        label: 'Todas',
+        type: 'food',
+        color: '#6366f1',
+        time_alert_yellow: yellowAllConfig,
+        time_alert_red: redAllConfig
+      })
+    ]);
     setAppName(appNameConfig);
     setAppLogo(appLogoConfig);
+    await loadData();
     setShowSettingsModal(false);
   };
 
@@ -395,6 +443,17 @@ export default function KDSApp() {
     }
   };
 
+  const handleLogin = (user: any) => {
+    setCurrentUser(user);
+    const r = user.role;
+    if (r === 'kitchen') setSelectedStation('food');
+    if (r === 'barista') setSelectedStation('bar');
+    if (r === 'waiter') {
+      setSidebarOpen(true);
+      setSidebarTab('simulator');
+    }
+  };
+
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -409,20 +468,6 @@ export default function KDSApp() {
     reader.readAsDataURL(file);
     e.target.value = '';
   };
-
-  const handleLogin = (user: any) => {
-    setCurrentUser(user);
-    const r = user.role;
-    if (r === 'kitchen') setSelectedStation('food');
-    if (r === 'barista') setSelectedStation('bar');
-    if (r === 'waiter') {
-      setSidebarOpen(true);
-      setSidebarTab('simulator');
-    }
-  };
-
-  const activeRole = currentUser?.role;
-  const canAccessFull = activeRole === 'root' || activeRole === 'admin';
 
   useEffect(() => {
     if (!rawLogo || !canvasRef.current) return;
@@ -636,65 +681,20 @@ export default function KDSApp() {
             Comida
           </button>
 
-          {/* Barra (parent — selects all bar items) */}
+          {/* Bebidas */}
           <button
-            className={`station-tab ${
-              selectedStation === 'bar' || selectedStation === 'bar_hot' || selectedStation === 'bar_cold'
-                ? 'active' : ''
-            }`}
-            onClick={() => setSelectedStation('bar')}
-            style={
-              (selectedStation === 'bar' || selectedStation === 'bar_hot' || selectedStation === 'bar_cold')
-                ? { background: 'var(--accent-glow)', borderColor: 'var(--accent-glow)', color: 'var(--accent)' }
-                : {}
-            }
+            className={`station-tab ${selectedStation === 'drink' ? 'active' : ''}`}
+            onClick={() => setSelectedStation('drink')}
+            style={selectedStation === 'drink' ? {
+              background: 'var(--accent-glow)',
+              borderColor: 'var(--accent-glow)',
+              color: 'var(--accent)',
+            } : {}}
           >
             <CupSoda size={13} style={{ opacity: 0.8 }} />
-            Barra
+            Bebidas
           </button>
         </div>
-
-        {/* Sub-tabs: only visible when Barra is active */}
-        {(selectedStation === 'bar' || selectedStation === 'bar_hot' || selectedStation === 'bar_cold') && (
-          <div style={{ display: 'flex', gap: '0.35rem', paddingBottom: '0.625rem', paddingLeft: '0.25rem' }}>
-            <button
-              onClick={() => setSelectedStation('bar')}
-              className={`btn btn--sm ${selectedStation === 'bar' ? '' : 'btn--ghost'}`}
-              style={{
-                fontSize: '0.72rem', gap: '0.3rem',
-                background:  selectedStation === 'bar' ? 'var(--accent-glow)' : undefined,
-                borderColor: selectedStation === 'bar' ? 'var(--accent-glow)' : undefined,
-                color:       selectedStation === 'bar' ? 'var(--accent)' : undefined,
-              }}
-            >
-              <CupSoda size={11} /> Todas Barra
-            </button>
-            <button
-              onClick={() => setSelectedStation('bar_hot')}
-              className={`btn btn--sm ${selectedStation === 'bar_hot' ? '' : 'btn--ghost'}`}
-              style={{
-                fontSize: '0.72rem', gap: '0.3rem',
-                background:  selectedStation === 'bar_hot' ? 'var(--red-bg)' : undefined,
-                borderColor: selectedStation === 'bar_hot' ? 'var(--red-border)' : undefined,
-                color:       selectedStation === 'bar_hot' ? 'var(--red)' : undefined,
-              }}
-            >
-              <Flame size={11} /> Calientes
-            </button>
-            <button
-              onClick={() => setSelectedStation('bar_cold')}
-              className={`btn btn--sm ${selectedStation === 'bar_cold' ? '' : 'btn--ghost'}`}
-              style={{
-                fontSize: '0.72rem', gap: '0.3rem',
-                background:  selectedStation === 'bar_cold' ? 'var(--accent-glow)' : undefined,
-                borderColor: selectedStation === 'bar_cold' ? 'var(--accent-glow)' : undefined,
-                color:       selectedStation === 'bar_cold' ? 'var(--accent)' : undefined,
-              }}
-            >
-              <Snowflake size={11} /> Frías
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ── Controls Bar ────────────────────────────────────── */}
@@ -973,9 +973,10 @@ export default function KDSApp() {
               </button>
             </div>
             
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             {settingsTab === 'system' ? (
               <>
-                <div style={{ padding: '2rem', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                   <div className="form-group" style={{ maxWidth: '400px' }}>
                     <label className="form-label" style={{ fontSize: '0.85rem', marginBottom: '0.4rem' }}>Nombre del Restaurante / Aplicación</label>
                     <input 
@@ -1020,6 +1021,35 @@ export default function KDSApp() {
                         </button>
                       </div>
                     )}
+                  </div>
+
+                  <div className="form-group" style={{ marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
+                       <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Tiempos de Alerta (KDS General)</h4>
+                    </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                      Define cuánto tiempo debe pasar (en segundos) para que un pedido se marque como retrasado.
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.4rem' }}>ALERTA AMARILLA (MINUTOS)</label>
+                        <input 
+                          type="number" step="0.5" className="form-input" 
+                          value={yellowAllConfig / 60} 
+                          onChange={e => setYellowAllConfig(Math.round(Number(e.target.value) * 60))} 
+                          placeholder="5"
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '0.4rem' }}>ALERTA ROJA / ATRASADO (MINUTOS)</label>
+                        <input 
+                          type="number" step="0.5" className="form-input" 
+                          value={redAllConfig / 60} 
+                          onChange={e => setRedAllConfig(Math.round(Number(e.target.value) * 60))} 
+                          placeholder="10"
+                        />
+                      </div>
+                    </div>
                   </div>
                   <div className="form-group" style={{ marginTop: '0.5rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>
@@ -1196,6 +1226,7 @@ export default function KDSApp() {
             ) : (
               <StationManager />
             )}
+            </div>
           </div>
         </div>
       )}

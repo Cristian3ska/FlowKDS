@@ -1,7 +1,7 @@
 export type TicketStatus = 'pending' | 'in-progress' | 'ready' | 'completed';
 export type ItemStatus = 'pending' | 'ready';
 export type OrderType = 'dine-in' | 'takeout' | 'delivery' | 'vip';
-export type StationId = 'all' | 'food' | 'bar' | 'bar_hot' | 'bar_cold';
+export type StationId = string;
 
 
 export interface TicketItem {
@@ -37,6 +37,7 @@ export interface Station {
   id: StationId;
   name: string;
   label: string;
+  type: string;
   color: string;
   time_alert_yellow: number;
   time_alert_red: number;

@@ -1,6 +1,8 @@
 import { AlertLevel, Ticket } from '@/types';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API = typeof window !== 'undefined' 
+  ? `http://${window.location.hostname}:4000` 
+  : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('kds-token') : null;
@@ -77,6 +79,7 @@ export const ORDER_TYPE_COLORS: Record<string, string> = {
   'vip': '#ec4899',
 };
 
+// Deprecated: Use dynamic stations from DB
 export const STATION_COLORS: Record<string, string> = {
   all:      '#6366f1',
   food:     '#f59e0b',

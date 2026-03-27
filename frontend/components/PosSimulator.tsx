@@ -13,7 +13,7 @@ interface MenuItem {
   price?: number;
 }
 
-const DRINK_SIZES = ['Chico', 'Mediano', 'Grande'];
+
 
 // ── Definición de mesas y mostradores ─────────────────────────────────────
 const TABLES = [
@@ -51,13 +51,18 @@ const emptyOrder = (): TableOrder => ({ items: [], notes: '', priority: 0 });
 // ── Component ─────────────────────────────────────────────────────────────
 export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  useEffect(() => {
-    api.get('/api/menu').then(setMenuItems);
-  }, []);
+  const [stations, setStations] = useState<any[]>([]);
+  const [typeFilter, setTypeFilter] = useState<'food' | 'drink'>('food');
 
-  const foodItems = menuItems.filter(i => i.category === 'food');
-  const hotDrinks = menuItems.filter(i => i.category === 'bar_hot');
-  const coldDrinks = menuItems.filter(i => i.category === 'bar_cold');
+  useEffect(() => {
+    Promise.all([
+      api.get('/api/menu'),
+      api.get('/api/stations')
+    ]).then(([menu, st]) => {
+      setMenuItems(menu);
+      setStations(st);
+    });
+  }, []);
 
   // Which table is currently selected (null = none)
   const [activeTable, setActiveTable] = useState<string | null>(null);
@@ -65,27 +70,19 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
   // Per-table order state; key = table id
   const [tableOrders, setTableOrders] = useState<Record<string, TableOrder>>({});
 
-  // Category panel
-  const categoriesList = useMemo(() => {
-    const raw = Array.from(new Set(menuItems.map(i => i.category)));
-    return ['todos', ...(raw.length > 0 ? raw : ['food', 'bar_hot', 'bar_cold'])];
-  }, [menuItems]);
-
-  const getCategoryInfo = (cat: string) => {
-    if (cat === 'todos') return { label: 'Todos', Icon: LayoutGrid, colorVar: 'var(--green)' };
-    if (cat === 'food') return { label: 'Comida', Icon: UtensilsCrossed, colorVar: 'var(--yellow)' };
-    if (cat === 'bar_hot') return { label: 'Caliente', Icon: Flame, colorVar: 'var(--red)' };
-    if (cat === 'bar_cold') return { label: 'Frío', Icon: Snowflake, colorVar: 'var(--accent)' };
-    return { label: cat.charAt(0).toUpperCase() + cat.slice(1), Icon: ShoppingBag, colorVar: 'var(--text-primary)' };
-  };
+  // Category panel - Filtered by type (food/drink)
+  const currentStations = useMemo(() => {
+    const list = stations.filter(s => s.id !== 'all' && (s.type || (['bar_hot','bar_cold','bar'].includes(s.id) ? 'drink' : 'food')) === typeFilter);
+    return list;
+  }, [stations, typeFilter]);
 
   const [category, setCategory] = useState<string>('todos');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Item builder (generalized for food & drinks)
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [selectedSize,  setSelectedSize]  = useState('Mediano');
   const [selectedMods,  setSelectedMods]  = useState<string[]>([]);
+  const [itemNote, setItemNote] = useState('');
 
   // Sending state and last-order feedback
   const [loading,   setLoading]   = useState(false);
@@ -133,16 +130,24 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
     item.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const stationColor = (st: string) =>
-    st === 'food' ? '#f59e0b' : st === 'bar_hot' ? '#ef4444' : '#06b6d4';
+  const stationColor = (st: string) => {
+    const found = stations.find(s => s.id === st);
+    if (found) return found.color;
+    return st === 'food' ? '#f59e0b' : st === 'bar_hot' ? '#ef4444' : '#06b6d4';
+  };
 
-  const stationLabel = (st: string) =>
-    st === 'food' ? 'Comida' : st === 'bar_hot' ? 'Caliente' : 'Frío';
+  const stationLabel = (st: string) => {
+    const found = stations.find(s => s.id === st);
+    if (found) return found.label;
+    return st === 'food' ? 'Comida' : st === 'bar_hot' ? 'Caliente' : 'Frío';
+  };
 
-  const stationIcon = (st: string) =>
-    st === 'food' ? <UtensilsCrossed size={11} />
-    : st === 'bar_hot' ? <Flame size={11} />
+  const stationIcon = (st: string) => {
+    const found = stations.find(s => s.id === st);
+    const type = found?.type || (['bar_hot','bar_cold','bar'].includes(st) ? 'drink' : 'food');
+    return type === 'food' ? <UtensilsCrossed size={11} />
     : <Snowflake size={11} />;
+  };
 
   const tableHasItems = (id: string) => (tableOrders[id]?.items?.length ?? 0) > 0;
   const tableTotalItems = (id: string) => (tableOrders[id]?.items ?? []).reduce((s, i) => s + i.quantity, 0);
@@ -168,12 +173,15 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
     if (!activeTable) return;
     setSelectedItem(item);
     setSelectedMods([]);
-    setSelectedSize('Mediano');
+    setItemNote('');
   };
 
   const handleItemClick = (item: MenuItem) => {
+    const stationObj = stations.find(s => s.id === category);
+    const resolvedType = stationObj?.type || (['bar','bar_hot','bar_cold'].includes(category) ? 'drink' : 'food');
+    
     // Si es comida y no tiene modificadores, agregar directo
-    if (category === 'food' && (!item.modifiers || item.modifiers.length === 0)) {
+    if (resolvedType === 'food' && (!item.modifiers || item.modifiers.length === 0)) {
       addItemDirectly(item);
     } else {
       openItemBuilder(item);
@@ -184,13 +192,25 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
     if (!selectedItem || !activeTable) return;
     
     // Si es bebida, agregar el tamaño como modificador principal
-    const isDrink = ['bar_hot', 'bar_cold'].includes(category);
-    const rawMods = isDrink ? [selectedSize, ...selectedMods].filter(Boolean) : [...selectedMods];
+    const stationObj = stations.find(s => s.id === category);
+    const resolvedType = stationObj?.type || (['bar','bar_hot','bar_cold'].includes(category) ? 'drink' : 'food');
+    const isDrink = resolvedType === 'drink';
+    const rawMods = [...selectedMods];
     
     // Limpiar artefactos del UI para combos
     const finalMods = rawMods.map(m => m.replace(/^COMBO_[^:]+:\s*/, ''));
+    if (itemNote.trim()) {
+      finalMods.push(`(${itemNote.trim()})`);
+    }
 
     const station = category;
+
+    // Calcular precio final sumando extras en modificadores (Ej: "+$15")
+    let finalPrice = selectedItem.price || 0;
+    selectedMods.forEach(m => {
+      const match = m.match(/\+\$?([0-9.]+)/);
+      if (match) finalPrice += parseFloat(match[1]);
+    });
 
     setOrder(activeTable, prev => {
       const key = `${selectedItem.name}|${finalMods.join(',')}|${station}`;
@@ -202,7 +222,7 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
             ? { ...i, quantity: i.quantity + 1 } : i
         ),
       };
-      return { ...prev, items: [...prev.items, { name: selectedItem.name, quantity: 1, station, modifiers: finalMods, price: selectedItem.price || 0 }] };
+      return { ...prev, items: [...prev.items, { name: selectedItem.name, quantity: 1, station, modifiers: finalMods, price: finalPrice }] };
     });
     setSelectedItem(null);
   };
@@ -446,29 +466,73 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
             />
           </div>
 
-          {/* Category tabs */}
-          <div className="no-scrollbar" style={{ display: 'flex', gap: '0.35rem', marginTop: '0.25rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
-            {categoriesList.map(cat => {
-              const info = getCategoryInfo(cat);
-              const isSelected = category === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => { setCategory(cat); setSelectedItem(null); setSearchTerm(''); }}
-                  className={`btn btn--sm ${isSelected ? '' : 'btn--ghost'}`}
-                  style={{
-                    flexDirection: 'column', gap: '0.15rem', height: '46px', flex: '0 0 auto', minWidth: '70px',
-                    background:  isSelected ? `color-mix(in srgb, ${info.colorVar} 15%, transparent)` : undefined,
-                    borderColor: isSelected ? info.colorVar : undefined,
-                    color:       isSelected ? info.colorVar : 'var(--text-muted)',
-                    fontSize: '0.68rem',
-                  }}
-                >
-                  <info.Icon size={13} />
-                  {info.label}
-                </button>
-              );
-            })}
+          {/* Type Switch and Station Buttons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', background: 'var(--bg-secondary)', borderRadius: '12px', padding: '0.2rem' }}>
+              <button
+                onClick={() => { setTypeFilter('food'); setCategory('todos'); }}
+                className={`btn btn--sm`}
+                style={{ 
+                  flex: 1, borderRadius: '10px', fontSize: '0.75rem', gap: '0.4rem',
+                  background: typeFilter === 'food' ? 'var(--bg-card)' : 'transparent',
+                  color: typeFilter === 'food' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  border: typeFilter === 'food' ? '1px solid var(--border-bright)' : '1px solid transparent'
+                }}
+              >
+                <UtensilsCrossed size={14} /> Comida
+              </button>
+              <button
+                onClick={() => { setTypeFilter('drink'); setCategory('todos'); }}
+                className={`btn btn--sm`}
+                style={{ 
+                  flex: 1, borderRadius: '10px', fontSize: '0.75rem', gap: '0.4rem',
+                  background: typeFilter === 'drink' ? 'var(--bg-card)' : 'transparent',
+                  color: typeFilter === 'drink' ? 'var(--text-primary)' : 'var(--text-muted)',
+                  border: typeFilter === 'drink' ? '1px solid var(--border-bright)' : '1px solid transparent'
+                }}
+              >
+                <Snowflake size={14} /> Bebida
+              </button>
+            </div>
+
+            <div className="no-scrollbar" style={{ display: 'flex', gap: '0.35rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+              <button
+                onClick={() => { setCategory('todos'); setSelectedItem(null); setSearchTerm(''); }}
+                className={`btn btn--sm ${category === 'todos' ? '' : 'btn--ghost'}`}
+                style={{
+                  flexDirection: 'column', gap: '0.15rem', height: '46px', flex: '0 0 auto', minWidth: '70px',
+                  background:  category === 'todos' ? `color-mix(in srgb, var(--green) 15%, transparent)` : undefined,
+                  borderColor: category === 'todos' ? 'var(--green)' : undefined,
+                  color:       category === 'todos' ? 'var(--green)' : 'var(--text-muted)',
+                  fontSize: '0.68rem',
+                }}
+              >
+                <LayoutGrid size={13} />
+                Todas
+              </button>
+              
+              {currentStations.map(st => {
+                const isSelected = category === st.id;
+                const color = st.color || 'var(--primary)';
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() => { setCategory(st.id); setSelectedItem(null); setSearchTerm(''); }}
+                    className={`btn btn--sm ${isSelected ? '' : 'btn--ghost'}`}
+                    style={{
+                      flexDirection: 'column', gap: '0.15rem', height: '46px', flex: '0 0 auto', minWidth: '70px',
+                      background:  isSelected ? `color-mix(in srgb, ${color} 15%, transparent)` : undefined,
+                      borderColor: isSelected ? color : undefined,
+                      color:       isSelected ? color : 'var(--text-primary)',
+                      fontSize: '0.68rem',
+                    }}
+                  >
+                    {st.type === 'drink' ? <Snowflake size={13} /> : <UtensilsCrossed size={13} />}
+                    {st.label || st.name}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Search bar */}
@@ -524,20 +588,7 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
 
                 return (
                   <>
-                    {['bar_hot', 'bar_cold'].includes(selectedItem.category) && (
-                      <div>
-                        <div className="form-label" style={{ marginBottom: '0.3rem' }}>Tamaño</div>
-                        <div style={{ display: 'flex', gap: '0.3rem' }}>
-                          {DRINK_SIZES.map(s => (
-                            <button key={s}
-                              onClick={() => setSelectedSize(s)}
-                              className={`btn btn--sm ${selectedSize === s ? 'btn--primary' : 'btn--ghost'}`}
-                              style={{ flex: 1, fontSize: '0.7rem' }}
-                            >{s}</button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+
                     
                     {Object.keys(comboGroups).sort().map(groupLabel => (
                       <div key={groupLabel} style={{ marginBottom: '0.2rem' }}>
@@ -579,6 +630,19 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
                             </button>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {selectedMods.some(m => m.toLowerCase().includes('extra') || m.toLowerCase().includes('cambio')) && (
+                      <div style={{ marginTop: '0.4rem', borderTop: '1px dashed var(--border)', paddingTop: '0.4rem' }}>
+                        <div className="form-label" style={{ fontSize: '0.7rem' }}>Detallar Extra / Cambio:</div>
+                        <input 
+                          type="text" className="form-input" 
+                          style={{ fontSize: '0.75rem', padding: '0.4rem' }} 
+                          placeholder="Ej: Extra tocino, sin sal..."
+                          value={itemNote}
+                          onChange={e => setItemNote(e.target.value)}
+                        />
                       </div>
                     )}
 
@@ -658,9 +722,6 @@ export default function PosSimulator({ accounts = [] }: { accounts?: any[] }) {
                         </div>
                       )}
                     </div>
-                    <span style={{ display: 'flex', gap: '0.2rem', color: stationColor(item.station), opacity: 0.7, marginRight: '0.2rem' }}>
-                      {stationIcon(item.station)}
-                    </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
                       <button 
                         className="btn btn--secondary btn--sm btn--icon" 

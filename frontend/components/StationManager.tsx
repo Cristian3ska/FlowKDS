@@ -12,7 +12,7 @@ export default function StationManager() {
   const [editForm, setEditForm] = useState<Partial<Station>>({});
   
   const [showAdd, setShowAdd] = useState(false);
-  const [addForm, setAddForm] = useState<Partial<Station>>({ id: '', name: '', label: '', color: '#6366f1', time_alert_yellow: 300, time_alert_red: 600 });
+  const [addForm, setAddForm] = useState<Partial<Station>>({ id: '', name: '', label: '', type: 'food', color: '#6366f1', time_alert_yellow: 300, time_alert_red: 600 });
 
   const fetchStations = async () => {
     try {
@@ -34,9 +34,9 @@ export default function StationManager() {
     if (!addForm.id || !addForm.name) return setError('El ID y nombre son requeridos');
     
     try {
-      await api.post('/api/stations', { ...addForm, label: addForm.label || addForm.name });
+      await api.post('/api/stations', { ...addForm, label: addForm.label || addForm.name, type: addForm.type || 'food' });
       setShowAdd(false);
-      setAddForm({ id: '', name: '', label: '', color: '#6366f1', time_alert_yellow: 300, time_alert_red: 600 });
+      setAddForm({ id: '', name: '', label: '', type: 'food', color: '#6366f1', time_alert_yellow: 300, time_alert_red: 600 });
       fetchStations();
     } catch (err: any) {
       setError(err.message || 'Error al crear área. Asegúrate de que el identificador no exista ya.');
@@ -73,7 +73,7 @@ export default function StationManager() {
   if (loading) return <div style={{ padding: '2rem', textAlign: 'center' }}>Cargando áreas...</div>;
 
   return (
-    <div style={{ padding: '2rem', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ padding: '1.25rem 2rem', flex: 1, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Gestión de Áreas / Estaciones</h3>
@@ -88,40 +88,47 @@ export default function StationManager() {
       {error && <div style={{ color: 'var(--red)', background: 'rgba(239, 68, 68, 0.1)', padding: '0.75rem', borderRadius: '8px', marginBottom: '1.5rem', fontSize: '0.85rem' }}>{error}</div>}
 
       {showAdd && (
-        <form onSubmit={handleAdd} style={{ background: 'var(--bg-secondary)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.8rem' }}>Identificador (ID Código)</label>
+        <form onSubmit={handleAdd} style={{ background: 'var(--bg-secondary)', padding: '1.25rem', borderRadius: '12px', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+            <div className="form-group" style={{ margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', minHeight: '2.5rem', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>Identificador (ID Código)</label>
               <input type="text" className="form-input" placeholder="ej: postres" value={addForm.id} onChange={e => setAddForm({...addForm, id: e.target.value})} required />
             </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.8rem' }}>Nombre Completo</label>
+            <div className="form-group" style={{ margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', minHeight: '2.5rem', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>Nombre Completo</label>
               <input type="text" className="form-input" placeholder="ej: Mesa de Postres" value={addForm.name} onChange={e => setAddForm({...addForm, name: e.target.value})} required />
             </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.8rem' }}>Etiqueta Corta (Label)</label>
+            <div className="form-group" style={{ margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', minHeight: '2.5rem', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>Etiqueta Corta (Label)</label>
               <input type="text" className="form-input" placeholder="ej: Postres" value={addForm.label} onChange={e => setAddForm({...addForm, label: e.target.value})} />
             </div>
+            <div className="form-group" style={{ margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', minHeight: '2.5rem', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>Tipo de Área</label>
+              <select className="form-select" value={addForm.type} onChange={e => setAddForm({...addForm, type: e.target.value})}>
+                <option value="food">Comida 🍴</option>
+                <option value="drink">Bebida 🥤</option>
+              </select>
+            </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.8rem' }}>Color (Hex)</label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+            <div className="form-group" style={{ margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', minHeight: '2.5rem', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>Color (Hex)</label>
               <input type="color" className="form-input" style={{ padding: '0 0.5rem', cursor: 'pointer', height: '38px', background: 'var(--bg-main)' }} value={addForm.color} onChange={e => setAddForm({...addForm, color: e.target.value})} />
             </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.8rem' }}>Alerta Amarilla (seg)</label>
-              <input type="number" className="form-input" min="30" value={addForm.time_alert_yellow} onChange={e => setAddForm({...addForm, time_alert_yellow: parseInt(e.target.value, 10)})} />
+            <div className="form-group" style={{ margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', minHeight: '2.5rem', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>Alerta Amarilla (min)</label>
+              <input type="number" step="0.5" className="form-input" value={(addForm.time_alert_yellow || 0) / 60} onChange={e => setAddForm({...addForm, time_alert_yellow: Math.round(parseFloat(e.target.value || '0') * 60)})} />
             </div>
-            <div className="form-group" style={{ margin: 0 }}>
-              <label className="form-label" style={{ fontSize: '0.8rem' }}>Alerta Roja (seg)</label>
-              <input type="number" className="form-input" min="60" value={addForm.time_alert_red} onChange={e => setAddForm({...addForm, time_alert_red: parseInt(e.target.value, 10)})} />
+            <div className="form-group" style={{ margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+              <label className="form-label" style={{ fontSize: '0.75rem', minHeight: '2.5rem', display: 'flex', alignItems: 'flex-end', paddingBottom: '0.5rem' }}>Alerta Roja (min)</label>
+              <input type="number" step="0.5" className="form-input" value={(addForm.time_alert_red || 0) / 60} onChange={e => setAddForm({...addForm, time_alert_red: Math.round(parseFloat(e.target.value || '0') * 60)})} />
             </div>
           </div>
           <button type="submit" className="btn btn--success" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}><Save size={16} /> Guardar Nueva Área</button>
         </form>
       )}
 
-      <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', overflow: 'hidden' }}>
+      <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ background: 'var(--bg-main)', borderBottom: '1px solid var(--border)' }}>
@@ -142,15 +149,19 @@ export default function StationManager() {
                     </td>
                     <td style={{ padding: '0.75rem 1rem' }}>
                       <input type="text" className="form-input" style={{ width: '100%', padding: '0.4rem', fontSize: '0.85rem', marginBottom: '0.4rem' }} value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
-                      <input type="text" className="form-input" style={{ width: '100%', padding: '0.4rem', fontSize: '0.85rem' }} value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} />
+                      <input type="text" className="form-input" style={{ width: '100%', padding: '0.4rem', fontSize: '0.85rem', marginBottom: '0.4rem' }} value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} />
+                      <select className="form-select" style={{ width: '100%', padding: '0.4rem', fontSize: '0.85rem' }} value={editForm.type} onChange={e => setEditForm({...editForm, type: e.target.value})}>
+                        <option value="food">🍴 Comida</option>
+                        <option value="drink">🥤 Bebida</option>
+                      </select>
                     </td>
                     <td style={{ padding: '0.75rem 1rem' }}>
                       <input type="color" className="form-input" style={{ padding: '0 0.5rem', cursor: 'pointer', height: '36px', background: 'var(--bg-main)' }} value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} />
                     </td>
                     <td style={{ padding: '0.75rem 1rem' }}>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <input type="number" className="form-input" style={{ width: '60px', padding: '0.4rem', fontSize: '0.8rem' }} value={editForm.time_alert_yellow} onChange={e => setEditForm({...editForm, time_alert_yellow: parseInt(e.target.value, 10)})} title="Amarillo" />
-                        <input type="number" className="form-input" style={{ width: '60px', padding: '0.4rem', fontSize: '0.8rem' }} value={editForm.time_alert_red} onChange={e => setEditForm({...editForm, time_alert_red: parseInt(e.target.value, 10)})} title="Rojo" />
+                        <input type="number" step="0.5" className="form-input" style={{ width: '60px', padding: '0.4rem', fontSize: '0.8rem' }} value={(editForm.time_alert_yellow || 0) / 60} onChange={e => setEditForm({...editForm, time_alert_yellow: Math.round(parseFloat(e.target.value || '0') * 60)})} title="Amarillo (min)" />
+                        <input type="number" step="0.5" className="form-input" style={{ width: '60px', padding: '0.4rem', fontSize: '0.8rem' }} value={(editForm.time_alert_red || 0) / 60} onChange={e => setEditForm({...editForm, time_alert_red: Math.round(parseFloat(e.target.value || '0') * 60)})} title="Rojo (min)" />
                       </div>
                     </td>
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
@@ -164,14 +175,16 @@ export default function StationManager() {
                   <>
                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}><code>{st.id}</code></td>
                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem' }}>
-                       <div>{st.name}</div>
+                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                         {st.name} {st.type === 'drink' ? '🥤' : '🍴'}
+                       </div>
                        <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{st.label}</div>
                     </td>
                     <td style={{ padding: '0.75rem 1rem' }}>
                        <div style={{ width: '20px', height: '20px', borderRadius: '4px', background: st.color, border: '1px solid rgba(255,255,255,0.2)' }} title={st.color} />
                     </td>
                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                       🟡 {st.time_alert_yellow}s<br />🔴 {st.time_alert_red}s
+                       🟡 {st.time_alert_yellow / 60} min<br />🔴 {st.time_alert_red / 60} min
                     </td>
                     <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>

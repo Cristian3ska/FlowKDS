@@ -531,17 +531,17 @@ app.get('/api/stations', (req, res) => {
 });
 
 app.post('/api/stations', (req, res) => {
-  const { id, name, label, color, time_alert_yellow, time_alert_red } = req.body;
+  const { id, name, label, type, color, time_alert_yellow, time_alert_red } = req.body;
   
   // Use provided id (e.g. "bar", "food") or fallback to a uuid
   const stationId = id || uuidv4();
   
   try {
     const stmt = db.prepare(`
-      INSERT INTO stations (id, name, label, color, time_alert_yellow, time_alert_red)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO stations (id, name, label, type, color, time_alert_yellow, time_alert_red)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(stationId, name, label || name, color || '#6366f1', Number(time_alert_yellow) || 300, Number(time_alert_red) || 600);
+    stmt.run(stationId, name, label || name, type || 'food', color || '#6366f1', Number(time_alert_yellow) || 300, Number(time_alert_red) || 600);
     
     io.emit('stations:updated', db.prepare('SELECT * FROM stations').all());
     res.status(201).json({ success: true, id: stationId });
@@ -554,16 +554,16 @@ app.post('/api/stations', (req, res) => {
 });
 
 app.put('/api/stations/:id', (req, res) => {
-  const { name, label, color, time_alert_yellow, time_alert_red } = req.body;
+  const { name, label, type, color, time_alert_yellow, time_alert_red } = req.body;
   const stationId = req.params.id;
   
   try {
     const stmt = db.prepare(`
       UPDATE stations 
-      SET name = ?, label = ?, color = ?, time_alert_yellow = ?, time_alert_red = ?
+      SET name = ?, label = ?, type = ?, color = ?, time_alert_yellow = ?, time_alert_red = ?
       WHERE id = ?
     `);
-    stmt.run(name, label || name, color || '#6366f1', Number(time_alert_yellow) || 300, Number(time_alert_red) || 600, stationId);
+    stmt.run(name, label || name, type || 'food', color || '#6366f1', Number(time_alert_yellow) || 300, Number(time_alert_red) || 600, stationId);
     
     io.emit('stations:updated', db.prepare('SELECT * FROM stations').all());
     res.json({ success: true });
@@ -653,7 +653,7 @@ app.get('/api/consolidation', (req, res) => {
   `;
   const params = [];
   if (station && station !== 'all') {
-    query += ' AND (ti.station = ? OR ti.station = "all")';
+    query += " AND (ti.station = ? OR ti.station = 'all')";
     params.push(station);
   }
   query += ' GROUP BY ti.name, ti.station ORDER BY total_quantity DESC';

@@ -4,7 +4,9 @@ import { io, Socket } from 'socket.io-client';
 import { Ticket } from '@/types';
 import { playSound } from '@/lib/utils';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_URL = typeof window !== 'undefined' 
+  ? `http://${window.location.hostname}:4000` 
+  : process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 interface UseKDSSocketOptions {
   soundEnabled: boolean;
